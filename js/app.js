@@ -92,30 +92,24 @@ function handleFiles(files) {
           };
         });
 
-      // Guardar en Supabase (acumula, no reemplaza)
-      const savedOk = await saveRecordsToSupabase(newRecords);
-      if (savedOk) {
-        console.log('✅ Datos sincronizados con Supabase');
-        // Recargar desde Supabase para historial completo
-        const allData = await loadRecordsFromSupabase();
-        if (allData && allData.length > 0) {
-          // Merge: usar datos de Supabase pero agregar campos extra del Excel recién subido
-          const mergedData = allData.map(supa => {
-            // Buscar el registro correspondiente en newRecords para obtener Departamento
-            const match = newRecords.find(nr =>
-              nr["Auditor Asignado"] === supa["Auditor Asignado"] &&
-              nr["Fecha de Creación"] === supa["Fecha de Creación"] &&
-              nr["Tipo de Auditoría"] === supa["Tipo de Auditoría"]
-            );
-            if (match) {
-              supa["Departamento"] = match["Departamento"] || match["Departam"] || match["Departam."] || '';
-            }
-            return supa;
-          });
-          rawData = mergedData;
-        } else {
-          rawData = newRecords;
-        }
+      // Guardar en Supabase en segundo plano (acumula, no reemplaza)
+      saveRecordsToSupabase(newRecords).then(ok => {
+        if (ok) console.log('✅ Datos sincronizados con Supabase');
+        else console.warn('⚠️ No se pudo guardar en Supabase, datos guardados localmente');
+      });
+
+      // Usar los datos del Excel directamente (tienen TODOS los campos: Departamento, etc.)
+      // Merge con datos existentes para acumular historial
+      if (rawData.length > 0) {
+        // Agregar solo registros nuevos (no duplicados)
+        newRecords.forEach(nr => {
+          const exists = rawData.some(existing =>
+            existing["Auditor Asignado"] === nr["Auditor Asignado"] &&
+            existing["Fecha de Creación"] === nr["Fecha de Creación"] &&
+            existing["Tipo de Auditoría"] === nr["Tipo de Auditoría"]
+          );
+          if (!exists) rawData.push(nr);
+        });
       } else {
         rawData = newRecords;
       }
@@ -123,8 +117,9 @@ function handleFiles(files) {
       document.getElementById('welcome-screen').classList.add('hidden');
       setTimeout(() => document.getElementById('welcome-screen').style.display = 'none', 500);
 
-      initDashboard();
+      // Guardar en localStorage (preserva TODOS los campos incluyendo Departamento)
       localStorage.setItem(STORAGE_DATA_KEY, JSON.stringify(rawData));
+      initDashboard();
     };
     reader.readAsArrayBuffer(files[0]);
   }
