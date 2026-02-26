@@ -18,6 +18,26 @@ function switchView(viewId, btnElement) {
     'analysis': 'Análisis Avanzado', 'history': 'Histórico y Backups'
   };
   document.getElementById('page-title').textContent = titles[viewId];
+
+  // Auto-close sidebar on mobile
+  if (window.innerWidth <= 768) {
+    closeSidebar();
+  }
+}
+
+// --- MOBILE SIDEBAR ---
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  sidebar.classList.toggle('open');
+  overlay.classList.toggle('active');
+}
+
+function closeSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  sidebar.classList.remove('open');
+  overlay.classList.remove('active');
 }
 
 // --- DRAG & DROP & FILES ---
@@ -186,7 +206,7 @@ function updateDashboard() {
   renderMatrix(filteredData);
   renderDetails(filteredData);
   renderPlantReport(filteredData);
-  renderAssignment(filteredData);
+  renderAssignment(); // async, loads its own data from Supabase
   renderAnalysis(filteredData);
   generateDynamicAnalysis(filteredData);
 }

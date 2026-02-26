@@ -209,48 +209,43 @@ function renderPlantReport(data) {
   });
 }
 
-// --- PANEL DE ASIGNACIÓN IGP ---
-function renderAssignment(data) {
+// --- PANEL DE ASIGNACIÓN IGP (Editable como Excel) ---
+let assignmentData = {}; // cache: { "inspector_mes": { igp_tema, igp_area } }
+let currentAssignYear = new Date().getFullYear();
+
+async function renderAssignment() {
   const container = document.getElementById('assignment-container');
   if (!container) return;
 
-  // Obtener meses activos de los datos
-  const activeMonths = new Set();
-  data.forEach(r => {
-    const m = parseInt(r["Fecha de Creación"]?.substring(5, 7));
-    if (m) activeMonths.add(m);
+  // Cargar asignaciones del año seleccionado
+  const assignments = await loadAssignments(currentAssignYear);
+  assignmentData = {};
+  assignments.forEach(a => {
+    assignmentData[`${a.inspector}_${a.mes}`] = {
+      igp_tema: a.igp_tema || '',
+      igp_area: a.igp_area || ''
+    };
   });
 
-  let html = '';
+  let html = `
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex; align-items:center; gap:12px; padding:8px 0;">
+        <label style="font-weight:600; font-size:14px;">Año:</label>
+        <select id="assign-year-select" onchange="changeAssignYear(this.value)"
+          style="padding:8px 16px; border:1px solid var(--border-color); border-radius:var(--radius-sm); font-size:14px; font-weight:600;">
+          <option value="2024" ${currentAssignYear === 2024 ? 'selected' : ''}>2024</option>
+          <option value="2025" ${currentAssignYear === 2025 ? 'selected' : ''}>2025</option>
+          <option value="2026" ${currentAssignYear === 2026 ? 'selected' : ''}>2026</option>
+        </select>
+        <span style="font-size:12px; color:var(--text-secondary);">
+          <i class="fas fa-info-circle"></i> Haz clic en cualquier celda para editar. Los cambios se guardan automáticamente.
+        </span>
+      </div>
+    </div>`;
 
   Object.keys(PLANT_GROUPS).forEach(plant => {
     const programmersName = PLANT_PROGRAMMER[plant] || "N/D";
     const auditors = PLANT_GROUPS[plant];
-
-    // Construir datos por auditor y mes
-    const auditorMonthData = {};
-    auditors.forEach(a => {
-      auditorMonthData[a] = {};
-      for (let m = 1; m <= 12; m++) {
-        const recs = data.filter(r =>
-          r["Auditor Asignado"] === a &&
-          parseInt(r["Fecha de Creación"]?.substring(5, 7)) === m
-        );
-        if (recs.length > 0) {
-          const status = getShortStatus(recs[0]["Estado"]);
-          auditorMonthData[a][m] = { status, count: recs.length };
-        }
-      }
-    });
-
-    // Estadísticas generales de la planta
-    const plantData = data.filter(r => auditors.includes(r["Auditor Asignado"]));
-    const totalRecs = plantData.length;
-    const eRecs = plantData.filter(r => getShortStatus(r["Estado"]) === 'E').length;
-    const pRecs = plantData.filter(r => getShortStatus(r["Estado"]) === 'P').length;
-    const epRecs = plantData.filter(r => getShortStatus(r["Estado"]) === 'EP').length;
-    const compliancePct = totalRecs > 0 ? ((eRecs / totalRecs) * 100).toFixed(1) : '0.0';
-
     const showArea = (plant === "Planta Exteriores");
 
     html += `
@@ -259,55 +254,125 @@ function renderAssignment(data) {
           <div>
             <h3><i class="fas fa-industry" style="color:var(--accent-color);margin-right:8px;"></i>${plant}</h3>
             <div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">
-              Programador: <b>${programmersName}</b> · 
-              <span style="color:var(--status-success);font-weight:600;">E: ${eRecs}</span> · 
-              <span style="color:var(--status-error);font-weight:600;">P: ${pRecs}</span> · 
-              <span style="color:var(--status-warning);font-weight:600;">EP: ${epRecs}</span> · 
-              Cumplimiento: <b>${compliancePct}%</b>
+              Programador: <b>${programmersName}</b>
             </div>
           </div>
         </div>
         <div class="table-container" style="overflow-x:auto;">
-          <table>
+          <table class="assign-table">
             <thead>
               <tr>
-                <th style="text-align:left; min-width:200px;">Inspector</th>
-                ${showArea ? '<th style="min-width:100px;">Área</th>' : ''}
-                ${MONTH_NAMES.slice(1).map(m => `<th style="min-width:55px;">${m}</th>`).join('')}
-                <th>Total</th>
-              </tr>
+                <th style="text-align:left; min-width:180px; position:sticky; left:0; z-index:2; background:#0056b3;">Inspectores</th>
+                ${showArea ? '<th style="min-width:90px;">Área</th>' : ''}
+                <th style="min-width:80px;">Programador</th>`;
+
+    // Headers por mes: IGP + Area
+    for (let m = 1; m <= 12; m++) {
+      html += `
+                <th colspan="2" style="min-width:300px; text-align:center; border-left:2px solid #003d82;">
+                  ${MONTH_NAMES[m]}
+                </th>`;
+    }
+
+    html += `</tr>
+              <tr>
+                <th style="position:sticky; left:0; z-index:2; background:#0056b3;"></th>
+                ${showArea ? '<th></th>' : ''}
+                <th></th>`;
+
+    for (let m = 1; m <= 12; m++) {
+      html += `
+                <th style="font-size:10px; border-left:2px solid #003d82;">IGP</th>
+                <th style="font-size:10px;">Área</th>`;
+    }
+
+    html += `</tr>
             </thead>
-            <tbody>
-              ${auditors.map(a => {
-                let totalAssigned = 0;
-                const cells = [];
-                for (let m = 1; m <= 12; m++) {
-                  const d = auditorMonthData[a][m];
-                  if (d) {
-                    totalAssigned += d.count;
-                    const cls = d.status === 'E' ? 'cell-e' : d.status === 'P' ? 'cell-p' : d.status === 'EP' ? 'cell-ep' : '';
-                    cells.push(`<td class="${cls}" style="text-align:center;font-size:12px;">${d.status}${d.count > 1 ? ' (' + d.count + ')' : ''}</td>`);
-                  } else {
-                    cells.push('<td style="text-align:center;color:#CBD5E1;">—</td>');
-                  }
-                }
-                const areaCell = showArea
-                  ? `<td><span style="background:#E0F2FE;color:#0369A1;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:600;">${AUDITOR_AREA[a] || 'N/D'}</span></td>`
-                  : '';
-                return `<tr>
-                  <td style="text-align:left;font-weight:500;">${a}</td>
-                  ${areaCell}
-                  ${cells.join('')}
-                  <td style="font-weight:700;text-align:center;">${totalAssigned || '—'}</td>
-                </tr>`;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>`;
+            <tbody>`;
+
+    auditors.forEach(a => {
+      const safeName = a.replace(/'/g, "\\'");
+      html += `
+              <tr>
+                <td style="text-align:left; font-weight:500; position:sticky; left:0; background:white; z-index:1; border-right:1px solid var(--border-color);">${a}</td>
+                ${showArea ? `<td style="text-align:center;"><span style="background:#E0F2FE;color:#0369A1;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:600;">${AUDITOR_AREA[a] || ''}</span></td>` : ''}
+                <td style="text-align:center; font-size:11px; color:var(--text-secondary);">${programmersName}</td>`;
+
+      for (let m = 1; m <= 12; m++) {
+        const key = `${a}_${m}`;
+        const d = assignmentData[key] || { igp_tema: '', igp_area: '' };
+        const temaId = `tema_${plant.replace(/\s/g, '')}_${a.replace(/\s/g, '_')}_${m}`;
+        const areaId = `area_${plant.replace(/\s/g, '')}_${a.replace(/\s/g, '_')}_${m}`;
+
+        html += `
+                <td style="padding:2px; border-left:2px solid #E2E8F0; min-width:180px;">
+                  <input type="text" id="${temaId}" value="${escapeHtml(d.igp_tema)}"
+                    class="assign-cell"
+                    placeholder="Tema IGP..."
+                    onblur="onAssignCellBlur('${safeName}', ${m})"
+                    data-inspector="${a}" data-mes="${m}" data-field="tema" />
+                </td>
+                <td style="padding:2px; min-width:120px;">
+                  <input type="text" id="${areaId}" value="${escapeHtml(d.igp_area)}"
+                    class="assign-cell"
+                    placeholder="Área..."
+                    onblur="onAssignCellBlur('${safeName}', ${m})"
+                    data-inspector="${a}" data-mes="${m}" data-field="area" />
+                </td>`;
+      }
+
+      html += `</tr>`;
+    });
+
+    html += `</tbody></table></div></div>`;
   });
 
   container.innerHTML = html;
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+async function onAssignCellBlur(inspector, mes) {
+  // Buscar todos los inputs para este inspector+mes
+  const allPlants = Object.keys(PLANT_GROUPS);
+  let temaVal = '';
+  let areaVal = '';
+
+  for (const plant of allPlants) {
+    const pId = plant.replace(/\s/g, '');
+    const iId = inspector.replace(/\s/g, '_');
+    const temaInput = document.getElementById(`tema_${pId}_${iId}_${mes}`);
+    const areaInput = document.getElementById(`area_${pId}_${iId}_${mes}`);
+    if (temaInput) temaVal = temaInput.value;
+    if (areaInput) areaVal = areaInput.value;
+  }
+
+  // Actualizar cache
+  const key = `${inspector}_${mes}`;
+  assignmentData[key] = { igp_tema: temaVal, igp_area: areaVal };
+
+  // Guardar en Supabase
+  const ok = await saveAssignment(inspector, currentAssignYear, mes, temaVal, areaVal);
+  if (ok) {
+    // Feedback visual sutil
+    for (const plant of allPlants) {
+      const pId = plant.replace(/\s/g, '');
+      const iId = inspector.replace(/\s/g, '_');
+      const temaInput = document.getElementById(`tema_${pId}_${iId}_${mes}`);
+      if (temaInput) {
+        temaInput.style.borderColor = '#10B981';
+        setTimeout(() => { temaInput.style.borderColor = ''; }, 1000);
+      }
+    }
+  }
+}
+
+async function changeAssignYear(year) {
+  currentAssignYear = parseInt(year);
+  await renderAssignment();
 }
 
 function renderDetails(data) {

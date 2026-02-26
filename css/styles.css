@@ -360,11 +360,366 @@ td.cell-ep { background: #FEF3C7; color: #92400E; font-weight: 600; }
   transform: translateY(0);
 }
 
-@media (max-width: 1200px) { .charts-grid { grid-template-columns: 1fr; } }
+/* --- Assignment Spreadsheet Cells --- */
+.assign-cell {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: 'Inter', sans-serif;
+  background: transparent;
+  color: var(--text-main);
+  transition: all 0.2s ease;
+}
 
+.assign-cell:hover {
+  border-color: #CBD5E1;
+  background: #F8FAFC;
+}
+
+.assign-cell:focus {
+  border-color: var(--accent-color);
+  background: white;
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.15);
+  outline: none;
+}
+
+.assign-cell::placeholder {
+  color: #CBD5E1;
+  font-style: italic;
+}
+
+.assign-table td {
+  padding: 4px !important;
+  vertical-align: middle;
+}
+
+.assign-table tbody tr:hover {
+  background: #F0F9FF !important;
+}
+
+/* --- Hamburger Button (hidden on desktop) --- */
+.hamburger-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  transition: background 0.2s;
+}
+
+.hamburger-btn:hover {
+  background: rgba(0,0,0,0.05);
+}
+
+/* --- Mobile Overlay --- */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.5);
+  z-index: 99;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.sidebar-overlay.active {
+  display: block;
+  opacity: 1;
+}
+
+/* ========================================
+   TABLET (max-width: 1200px)
+   ======================================== */
+@media (max-width: 1200px) {
+  .charts-grid { grid-template-columns: 1fr; }
+}
+
+/* ========================================
+   MOBILE (max-width: 768px)
+   ======================================== */
 @media (max-width: 768px) {
-  body { flex-direction: column; height: auto; overflow: auto; }
-  .sidebar { width: 100%; height: auto; }
-  .main-content { height: auto; }
-  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  :root {
+    --sidebar-width: 280px;
+    --header-height: 56px;
+  }
+
+  body {
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* --- Sidebar: Off-canvas drawer --- */
+  .sidebar {
+    position: fixed;
+    top: 0; left: -100%;
+    width: var(--sidebar-width);
+    height: 100vh;
+    z-index: 100;
+    transition: left 0.3s ease;
+  }
+
+  .sidebar.open {
+    left: 0;
+  }
+
+  .sidebar-header {
+    height: var(--header-height);
+    padding: 0 20px;
+    font-size: 18px;
+  }
+
+  .sidebar-menu {
+    padding: 16px 12px;
+    gap: 2px;
+  }
+
+  .menu-item {
+    padding: 12px 16px;
+    font-size: 14px;
+    gap: 12px;
+  }
+
+  .menu-item i {
+    width: 20px;
+    font-size: 16px;
+  }
+
+  .sidebar-footer {
+    padding: 16px;
+    font-size: 11px;
+  }
+
+  /* --- Main Content --- */
+  .main-content {
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* --- Top Bar --- */
+  .top-bar {
+    height: var(--header-height);
+    padding: 0 16px;
+    gap: 8px;
+  }
+
+  .hamburger-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .page-title {
+    font-size: 16px;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .top-bar > div:last-child {
+    gap: 6px !important;
+  }
+
+  .top-bar .btn,
+  .top-bar .btn-secondary {
+    padding: 6px 10px;
+    font-size: 11px;
+    gap: 4px;
+  }
+
+  .top-bar .btn i,
+  .top-bar .btn-secondary i {
+    font-size: 12px;
+  }
+
+  /* Hide button text on very small screens */
+  @media (max-width: 420px) {
+    .top-bar .btn span,
+    .top-bar .btn-secondary span {
+      display: none;
+    }
+  }
+
+  /* --- Content Scroll --- */
+  .content-scroll {
+    padding: 16px;
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* --- Cards --- */
+  .card {
+    padding: 16px;
+    margin-bottom: 16px;
+    border-radius: var(--radius-md);
+  }
+
+  .card-header {
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .card-header h3 {
+    font-size: 15px;
+  }
+
+  /* --- Filters --- */
+  .filters-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .filter-btn {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+
+  /* --- KPI Grid --- */
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .kpi-card {
+    padding: 16px;
+    border-radius: var(--radius-md);
+  }
+
+  .kpi-value {
+    font-size: 26px;
+    margin: 8px 0 2px 0;
+  }
+
+  .kpi-title {
+    font-size: 10px;
+  }
+
+  .kpi-sub {
+    font-size: 10px;
+  }
+
+  /* --- Charts --- */
+  .charts-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .chart-container {
+    height: 250px;
+  }
+
+  /* --- Tables --- */
+  .table-container {
+    border-radius: var(--radius-sm);
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table {
+    font-size: 12px;
+  }
+
+  thead th {
+    padding: 10px 8px;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
+  tbody td {
+    padding: 10px 8px;
+    font-size: 12px;
+  }
+
+  /* --- Status Pills --- */
+  .status-pill {
+    padding: 4px 10px;
+    font-size: 10px;
+  }
+
+  /* --- Welcome Screen --- */
+  .drop-zone {
+    width: 90vw;
+    min-height: 250px;
+    padding: 24px;
+    border-radius: 16px;
+  }
+
+  .drop-zone i {
+    font-size: 48px;
+    margin-bottom: 16px;
+  }
+
+  .drop-zone h2 {
+    font-size: 22px;
+  }
+
+  .drop-zone p {
+    font-size: 13px;
+  }
+
+  /* --- Analysis --- */
+  .analysis-box {
+    margin-top: 12px;
+    padding: 12px 16px;
+    font-size: 12px;
+  }
+
+  /* --- CRM Modal --- */
+  #crm-modal .card {
+    width: 95% !important;
+    max-width: 400px;
+    margin: 16px;
+  }
+
+  /* --- Assignment Table (mobile) --- */
+  .assign-cell {
+    padding: 4px 6px;
+    font-size: 10px;
+    min-width: 120px;
+  }
+
+  .assign-table td {
+    padding: 3px !important;
+  }
+}
+
+/* ========================================
+   SMALL MOBILE (max-width: 420px)
+   ======================================== */
+@media (max-width: 420px) {
+  .kpi-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .kpi-card { padding: 12px; }
+  .kpi-value { font-size: 22px; }
+
+  .filters-grid {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .content-scroll { padding: 12px; }
+  .card { padding: 12px; margin-bottom: 12px; }
+}
+
+/* --- Print --- */
+@media print {
+  .no-print { display: none !important; }
+  .sidebar { display: none !important; }
+  .main-content { margin: 0; width: 100%; }
+  .content-scroll { padding: 0; overflow: visible; }
+  body { overflow: visible; height: auto; }
 }

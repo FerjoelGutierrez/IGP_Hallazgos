@@ -32,8 +32,10 @@
     </div>
   </div>
 
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
   <!-- Sidebar Navigation -->
-  <nav class="sidebar no-print">
+  <nav class="sidebar no-print" id="sidebar">
     <div class="sidebar-header">
       <i class="fas fa-chart-line" style="margin-right: 10px;"></i> VITAPRO
     </div>
@@ -66,17 +68,22 @@
   <!-- Main Content Area -->
   <main class="main-content">
     <div class="top-bar no-print">
-      <div class="page-title" id="page-title">Dashboard General</div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button class="hamburger-btn" id="hamburger-btn" onclick="toggleSidebar()">
+          <i class="fas fa-bars"></i>
+        </button>
+        <div class="page-title" id="page-title">Dashboard General</div>
+      </div>
       <div style="display:flex; gap:10px;">
         <button class="btn btn-secondary" onclick="document.getElementById('file-input').click()">
-          <i class="fas fa-upload"></i> Cargar Excel
+          <i class="fas fa-upload"></i> <span>Cargar Excel</span>
         </button>
         <input type="file" id="file-input" accept=".xlsx, .xls" style="display:none;">
         <button class="btn btn-secondary" onclick="sendEmail()">
-          <i class="fas fa-envelope"></i> Enviar Correo
+          <i class="fas fa-envelope"></i> <span>Enviar Correo</span>
         </button>
         <button class="btn" onclick="window.print()">
-          <i class="fas fa-print"></i> Imprimir
+          <i class="fas fa-print"></i> <span>Imprimir</span>
         </button>
       </div>
     </div>

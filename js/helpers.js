@@ -135,9 +135,87 @@ async function deleteAllRecordsFromSupabase() {
 
   try {
     await sb.from('igp_records').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await sb.from('igp_assignments').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     return true;
   } catch (err) {
     console.error('Error eliminando de Supabase:', err);
+    return false;
+  }
+}
+
+// --- ASSIGNMENTS CRUD ---
+
+// Cargar asignaciones de un año
+async function loadAssignments(anio) {
+  const sb = getSupabase();
+  if (!sb) {
+    // Fallback localStorage
+    const saved = localStorage.getItem('IGP_Assignments_' + anio);
+    return saved ? JSON.parse(saved) : [];
+  }
+
+  try {
+    const { data, error } = await sb.from('igp_assignments')
+      .select('*')
+      .eq('anio', anio)
+      .order('inspector', { ascending: true });
+    if (error) { console.error('Error cargando asignaciones:', error); return []; }
+    return data || [];
+  } catch (err) {
+    console.error('Error cargando asignaciones:', err);
+    return [];
+  }
+}
+
+// Guardar/actualizar una asignación (upsert por inspector+año+mes)
+async function saveAssignment(inspector, anio, mes, igpTema, igpArea) {
+  const sb = getSupabase();
+
+  // Guardar también en localStorage como backup
+  const localKey = 'IGP_Assignments_' + anio;
+  const localData = JSON.parse(localStorage.getItem(localKey) || '[]');
+  const existingIdx = localData.findIndex(a => a.inspector === inspector && a.mes === mes);
+  const record = {
+    inspector,
+    area_inspector: AUDITOR_AREA[inspector] || '',
+    programador: getProgrammerFromAuditor(inspector),
+    planta: getPlantFromAuditor(inspector),
+    anio,
+    mes,
+    igp_tema: igpTema,
+    igp_area: igpArea
+  };
+  if (existingIdx >= 0) {
+    localData[existingIdx] = { ...localData[existingIdx], ...record };
+  } else {
+    localData.push(record);
+  }
+  localStorage.setItem(localKey, JSON.stringify(localData));
+
+  if (!sb) return true;
+
+  try {
+    const { data: existing } = await sb.from('igp_assignments')
+      .select('id')
+      .eq('inspector', inspector)
+      .eq('anio', anio)
+      .eq('mes', mes)
+      .maybeSingle();
+
+    if (existing) {
+      // Update
+      const { error } = await sb.from('igp_assignments')
+        .update({ igp_tema: igpTema, igp_area: igpArea })
+        .eq('id', existing.id);
+      if (error) { console.error('Error actualizando asignación:', error); return false; }
+    } else {
+      // Insert
+      const { error } = await sb.from('igp_assignments').insert(record);
+      if (error) { console.error('Error insertando asignación:', error); return false; }
+    }
+    return true;
+  } catch (err) {
+    console.error('Error guardando asignación:', err);
     return false;
   }
 }
