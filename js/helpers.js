@@ -57,6 +57,7 @@ async function saveRecordsToSupabase(records) {
     const rows = newRecords.map(r => ({
       unidad: r["Unidad"] || null,
       area: r["Área"] || null,
+      departamento: r["Departamento"] || null,
       auditor_asignado: r["Auditor Asignado"] || '',
       programador: r["Programador"] || null,
       fecha_creacion: r["Fecha de Creación"] || null,
@@ -96,6 +97,7 @@ async function loadRecordsFromSupabase() {
       _supabase_id: row.id,
       "Unidad": row.unidad,
       "Área": row.area,
+      "Departamento": row.departamento || '',
       "Auditor Asignado": row.auditor_asignado,
       "Programador": row.programador,
       "Fecha de Creación": row.fecha_creacion,

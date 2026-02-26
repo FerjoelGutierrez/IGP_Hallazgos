@@ -11,6 +11,7 @@ CREATE TABLE igp_records (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   unidad TEXT,
   area TEXT,
+  departamento TEXT,
   auditor_asignado TEXT NOT NULL,
   programador TEXT,
   fecha_creacion DATE,

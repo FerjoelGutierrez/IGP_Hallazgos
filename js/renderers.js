@@ -234,23 +234,22 @@ function renderPlantReport(data) {
 let assignmentData = {}; // cache: { "inspector_mes": { igp_tema, igp_area } }
 let currentAssignYear = new Date().getFullYear();
 
-function isHallazgo(tipo) {
+function isIGPType(tipo) {
   if (!tipo) return false;
-  const t = tipo.toLowerCase();
-  return t.includes('hallazgo') || t.includes('acto') || t.includes('subestandar') || t.includes('subestándar') || t.includes('reporte de acto');
+  return tipo.trim().toUpperCase().startsWith('IGP');
 }
 
 async function renderAssignment() {
   const container = document.getElementById('assignment-container');
   if (!container) return;
 
-  // 1. Auto-generar asignaciones SOLO de IGP (no hallazgos)
+  // 1. Auto-generar asignaciones SOLO de tipos IGP
   const autoAssignments = {};
   if (typeof rawData !== 'undefined' && rawData.length > 0) {
     rawData.forEach(r => {
       const tipo = r["Tipo de Auditoría"] || '';
-      // EXCLUIR hallazgos y actos subestándares
-      if (isHallazgo(tipo)) return;
+      // SOLO incluir registros que empiezan con "IGP"
+      if (!isIGPType(tipo)) return;
 
       const fecha = r["Fecha de Creación"] || '';
       if (fecha.length < 7) return;
