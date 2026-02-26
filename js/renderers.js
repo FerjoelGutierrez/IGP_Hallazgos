@@ -234,14 +234,24 @@ function renderPlantReport(data) {
 let assignmentData = {}; // cache: { "inspector_mes": { igp_tema, igp_area } }
 let currentAssignYear = new Date().getFullYear();
 
+function isHallazgo(tipo) {
+  if (!tipo) return false;
+  const t = tipo.toLowerCase();
+  return t.includes('hallazgo') || t.includes('acto') || t.includes('subestandar') || t.includes('subestándar') || t.includes('reporte de acto');
+}
+
 async function renderAssignment() {
   const container = document.getElementById('assignment-container');
   if (!container) return;
 
-  // 1. Auto-generar asignaciones desde los datos cargados (rawData)
+  // 1. Auto-generar asignaciones SOLO de IGP (no hallazgos)
   const autoAssignments = {};
   if (typeof rawData !== 'undefined' && rawData.length > 0) {
     rawData.forEach(r => {
+      const tipo = r["Tipo de Auditoría"] || '';
+      // EXCLUIR hallazgos y actos subestándares
+      if (isHallazgo(tipo)) return;
+
       const fecha = r["Fecha de Creación"] || '';
       if (fecha.length < 7) return;
       const year = parseInt(fecha.substring(0, 4));
@@ -251,33 +261,31 @@ async function renderAssignment() {
       if (!inspector) return;
 
       const key = `${inspector}_${mes}`;
-      const tipo = r["Tipo de Auditoría"] || '';
-      const area = r["Área"] || '';
+      const area = r["Departamento"] || r["Área"] || '';
 
       if (!autoAssignments[key]) {
         autoAssignments[key] = { igp_tema: tipo, igp_area: area };
       } else {
-        // Si ya hay uno, concatenar con salto de línea
         if (tipo && !autoAssignments[key].igp_tema.includes(tipo)) {
-          autoAssignments[key].igp_tema += (autoAssignments[key].igp_tema ? '\n' : '') + tipo;
+          autoAssignments[key].igp_tema += '\n' + tipo;
         }
         if (area && !autoAssignments[key].igp_area.includes(area)) {
-          autoAssignments[key].igp_area += (autoAssignments[key].igp_area ? '\n' : '') + area;
+          autoAssignments[key].igp_area += '\n' + area;
         }
       }
     });
   }
 
-  // 2. Cargar asignaciones guardadas (Supabase/localStorage) - tienen prioridad
+  // 2. Cargar asignaciones guardadas desde Supabase/localStorage
   const savedAssignments = await loadAssignments(currentAssignYear);
   assignmentData = {};
 
-  // Primero poner las auto-generadas
+  // Poner las auto-generadas del Excel
   Object.keys(autoAssignments).forEach(key => {
     assignmentData[key] = autoAssignments[key];
   });
 
-  // Luego las guardadas sobreescriben (tienen prioridad si no están vacías)
+  // Las guardadas sobreescriben (si el usuario las editó manualmente)
   savedAssignments.forEach(a => {
     const key = `${a.inspector}_${a.mes}`;
     if (a.igp_tema || a.igp_area) {
@@ -288,6 +296,20 @@ async function renderAssignment() {
     }
   });
 
+  // 3. Auto-guardar las asignaciones del Excel para que persistan
+  for (const key of Object.keys(autoAssignments)) {
+    const savedKey = savedAssignments.find(s => `${s.inspector}_${s.mes}` === key);
+    if (!savedKey) {
+      const [inspector, mesStr] = key.split(/_(\d+)$/);
+      const mes = parseInt(mesStr);
+      if (inspector && mes) {
+        saveAssignment(inspector, currentAssignYear, mes,
+          autoAssignments[key].igp_tema, autoAssignments[key].igp_area);
+      }
+    }
+  }
+
+  // 4. Renderizar tabla
   let html = `
     <div class="card" style="margin-bottom:12px;">
       <div style="display:flex; align-items:center; gap:12px; padding:4px 0; flex-wrap:wrap;">
@@ -299,7 +321,7 @@ async function renderAssignment() {
           <option value="2026" ${currentAssignYear === 2026 ? 'selected' : ''}>2026</option>
         </select>
         <span style="font-size:11px; color:var(--text-secondary);">
-          <i class="fas fa-info-circle"></i> Celdas editables. Se autoguardan al salir de la celda.
+          <i class="fas fa-info-circle"></i> Solo muestra IGP (no hallazgos). Celdas editables, se guardan al salir.
         </span>
       </div>
     </div>`;
@@ -314,9 +336,7 @@ async function renderAssignment() {
         <div class="card-header" style="margin-bottom:8px; padding-bottom:6px;">
           <div>
             <h3 style="font-size:14px;"><i class="fas fa-industry" style="color:var(--accent-color);margin-right:6px;"></i>${plant}</h3>
-            <div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">
-              Programador: <b>${programmersName}</b>
-            </div>
+            <div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">Programador: <b>${programmersName}</b></div>
           </div>
         </div>
         <div class="table-container" style="overflow-x:auto;">
@@ -331,8 +351,7 @@ async function renderAssignment() {
       html += `<th colspan="2" style="min-width:250px; text-align:center; border-left:2px solid #003d82;">${MONTH_NAMES[m]}</th>`;
     }
 
-    html += `</tr>
-              <tr>
+    html += `</tr><tr>
                 <th style="position:sticky; left:0; z-index:2; background:#0056b3;"></th>
                 ${showArea ? '<th></th>' : ''}
                 <th></th>`;
@@ -347,9 +366,9 @@ async function renderAssignment() {
     auditors.forEach(a => {
       const safeName = a.replace(/'/g, "\\'");
       html += `<tr>
-                <td style="text-align:left; font-weight:500; font-size:11px; position:sticky; left:0; background:white; z-index:1; border-right:1px solid var(--border-color); white-space:nowrap;">${a}</td>
-                ${showArea ? `<td style="text-align:center;"><span style="background:#E0F2FE;color:#0369A1;padding:2px 6px;border-radius:8px;font-size:9px;font-weight:600;">${AUDITOR_AREA[a] || ''}</span></td>` : ''}
-                <td style="text-align:center; font-size:10px; color:var(--text-secondary);">${programmersName}</td>`;
+        <td style="text-align:left; font-weight:500; font-size:11px; position:sticky; left:0; background:white; z-index:1; border-right:1px solid var(--border-color); white-space:nowrap;">${a}</td>
+        ${showArea ? `<td style="text-align:center;"><span style="background:#E0F2FE;color:#0369A1;padding:2px 6px;border-radius:8px;font-size:9px;font-weight:600;">${AUDITOR_AREA[a] || ''}</span></td>` : ''}
+        <td style="text-align:center; font-size:10px; color:var(--text-secondary);">${programmersName}</td>`;
 
       for (let m = 1; m <= 12; m++) {
         const key = `${a}_${m}`;
@@ -357,23 +376,17 @@ async function renderAssignment() {
         const temaId = `tema_${plant.replace(/\s/g, '')}_${a.replace(/\s/g, '_')}_${m}`;
         const areaId = `area_${plant.replace(/\s/g, '')}_${a.replace(/\s/g, '_')}_${m}`;
 
-        html += `<td style="padding:1px; border-left:2px solid #E2E8F0; min-width:150px; vertical-align:top;">
-                  <textarea id="${temaId}" rows="1"
-                    class="assign-cell"
-                    placeholder="..."
+        html += `<td class="assign-td" style="border-left:2px solid #E2E8F0;">
+                  <div class="assign-cell" contenteditable="true" id="${temaId}"
+                    data-placeholder="..."
                     onblur="onAssignCellBlur('${safeName}', ${m})"
-                    oninput="autoResizeCell(this)"
-                    onfocus="autoResizeCell(this)"
-                    data-inspector="${a}" data-mes="${m}" data-field="tema">${escapeHtml(d.igp_tema)}</textarea>
+                    data-inspector="${a}" data-mes="${m}" data-field="tema">${escapeHtml(d.igp_tema).replace(/\n/g, '<br>')}</div>
                 </td>
-                <td style="padding:1px; min-width:100px; vertical-align:top;">
-                  <textarea id="${areaId}" rows="1"
-                    class="assign-cell"
-                    placeholder="..."
+                <td class="assign-td">
+                  <div class="assign-cell" contenteditable="true" id="${areaId}"
+                    data-placeholder="..."
                     onblur="onAssignCellBlur('${safeName}', ${m})"
-                    oninput="autoResizeCell(this)"
-                    onfocus="autoResizeCell(this)"
-                    data-inspector="${a}" data-mes="${m}" data-field="area">${escapeHtml(d.igp_area)}</textarea>
+                    data-inspector="${a}" data-mes="${m}" data-field="area">${escapeHtml(d.igp_area).replace(/\n/g, '<br>')}</div>
                 </td>`;
       }
 
@@ -384,23 +397,6 @@ async function renderAssignment() {
   });
 
   container.innerHTML = html;
-
-  // Auto-resize todas las celdas con contenido
-  requestAnimationFrame(() => {
-    document.querySelectorAll('.assign-cell').forEach(el => {
-      el.style.height = '0';
-      el.style.height = Math.max(24, el.scrollHeight) + 'px';
-    });
-  });
-}
-
-function autoResizeCell(el) {
-  el.style.height = '0';
-  el.style.height = Math.max(24, el.scrollHeight) + 'px';
-}
-
-function autoResizeAllCells() {
-  document.querySelectorAll('.assign-cell').forEach(el => autoResizeCell(el));
 }
 
 function escapeHtml(str) {
@@ -409,7 +405,6 @@ function escapeHtml(str) {
 }
 
 async function onAssignCellBlur(inspector, mes) {
-  // Buscar todos los inputs para este inspector+mes
   const allPlants = Object.keys(PLANT_GROUPS);
   let temaVal = '';
   let areaVal = '';
@@ -417,10 +412,10 @@ async function onAssignCellBlur(inspector, mes) {
   for (const plant of allPlants) {
     const pId = plant.replace(/\s/g, '');
     const iId = inspector.replace(/\s/g, '_');
-    const temaInput = document.getElementById(`tema_${pId}_${iId}_${mes}`);
-    const areaInput = document.getElementById(`area_${pId}_${iId}_${mes}`);
-    if (temaInput) temaVal = temaInput.value;
-    if (areaInput) areaVal = areaInput.value;
+    const temaEl = document.getElementById(`tema_${pId}_${iId}_${mes}`);
+    const areaEl = document.getElementById(`area_${pId}_${iId}_${mes}`);
+    if (temaEl) temaVal = temaEl.innerText.trim();
+    if (areaEl) areaVal = areaEl.innerText.trim();
   }
 
   // Actualizar cache
@@ -430,14 +425,13 @@ async function onAssignCellBlur(inspector, mes) {
   // Guardar en Supabase
   const ok = await saveAssignment(inspector, currentAssignYear, mes, temaVal, areaVal);
   if (ok) {
-    // Feedback visual sutil
     for (const plant of allPlants) {
       const pId = plant.replace(/\s/g, '');
       const iId = inspector.replace(/\s/g, '_');
-      const temaInput = document.getElementById(`tema_${pId}_${iId}_${mes}`);
-      if (temaInput) {
-        temaInput.style.borderColor = '#10B981';
-        setTimeout(() => { temaInput.style.borderColor = ''; }, 1000);
+      const temaEl = document.getElementById(`tema_${pId}_${iId}_${mes}`);
+      if (temaEl) {
+        temaEl.style.background = '#D1FAE5';
+        setTimeout(() => { temaEl.style.background = ''; }, 800);
       }
     }
   }
