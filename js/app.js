@@ -101,14 +101,26 @@ function handleFiles(files) {
       // Usar los datos del Excel directamente (tienen TODOS los campos: Departamento, etc.)
       // Merge con datos existentes para acumular historial
       if (rawData.length > 0) {
-        // Agregar solo registros nuevos (no duplicados)
         newRecords.forEach(nr => {
-          const exists = rawData.some(existing =>
+          const existIdx = rawData.findIndex(existing =>
             existing["Auditor Asignado"] === nr["Auditor Asignado"] &&
             existing["Fecha de Creación"] === nr["Fecha de Creación"] &&
             existing["Tipo de Auditoría"] === nr["Tipo de Auditoría"]
           );
-          if (!exists) rawData.push(nr);
+          if (existIdx >= 0) {
+            // Registro existe: actualizar Departamento si faltaba
+            if (nr["Departamento"] && !rawData[existIdx]["Departamento"]) {
+              rawData[existIdx]["Departamento"] = nr["Departamento"];
+            }
+            // Actualizar cualquier otro campo del Excel
+            Object.keys(nr).forEach(k => {
+              if (nr[k] && !rawData[existIdx][k]) {
+                rawData[existIdx][k] = nr[k];
+              }
+            });
+          } else {
+            rawData.push(nr);
+          }
         });
       } else {
         rawData = newRecords;
@@ -284,17 +296,23 @@ function exportPlantPDF(plantName) {
   exportTableToPDF('table-plant-' + plantName.replace(/\s/g, ''), 'Reporte_' + plantName);
 }
 
-function exportAllPlantsPDF() {
+function exportAllPlantsPDF(selectedProgrammer) {
+  const plants = selectedProgrammer === 'all'
+    ? Object.keys(PLANT_GROUPS)
+    : Object.keys(PLANT_PROGRAMMER).filter(p => PLANT_PROGRAMMER[p] === selectedProgrammer);
+
+  if (plants.length === 0) return alert('No hay datos para este programador');
+
   const doc = new jspdf.jsPDF('p');
   doc.setFontSize(18);
-  doc.text("Reporte Consolidado de Plantas", 14, 15);
+  doc.text(selectedProgrammer === 'all' ? "Reporte Consolidado" : `Reporte - ${selectedProgrammer}`, 14, 15);
   let yPos = 25;
 
-  Object.keys(PLANT_GROUPS).forEach(plant => {
+  plants.forEach(plant => {
     const table = document.querySelector('#table-plant-' + plant.replace(/\s/g, '') + ' table');
     if (table) {
       doc.setFontSize(14);
-      doc.text(`${plant} (Programador: ${PLANT_PROGRAMMER[plant] || "N/D"})`, 14, yPos);
+      doc.text(`${plant} (${PLANT_PROGRAMMER[plant] || "N/D"})`, 14, yPos);
       doc.autoTable({
         html: table, startY: yPos + 5, theme: 'grid',
         headStyles: { fillColor: [15, 23, 42] },
@@ -311,11 +329,105 @@ function exportAllPlantsPDF() {
       if (yPos > 250) { doc.addPage(); yPos = 20; }
     }
   });
-  doc.save('Reporte_Plantas.pdf');
+  const filename = selectedProgrammer === 'all' ? 'Reporte_Todas_Plantas' : `Reporte_${selectedProgrammer.replace(/\s/g, '_')}`;
+  doc.save(filename + '.pdf');
 }
 
-function sendEmail() {
-  window.location.href = `mailto:?subject=${encodeURIComponent("Reporte IGP")}&body=${encodeURIComponent("Adjunto reporte.")}`;
+function sendEmail(selectedProgrammer) {
+  const plants = selectedProgrammer === 'all'
+    ? Object.keys(PLANT_GROUPS)
+    : Object.keys(PLANT_PROGRAMMER).filter(p => PLANT_PROGRAMMER[p] === selectedProgrammer);
+
+  let body = selectedProgrammer === 'all'
+    ? 'REPORTE IGP - TODAS LAS PLANTAS\n\n'
+    : `REPORTE IGP - ${selectedProgrammer.toUpperCase()}\n\n`;
+
+  plants.forEach(plant => {
+    const auditors = PLANT_GROUPS[plant];
+    const plantData = rawData.filter(r => auditors.includes(r["Auditor Asignado"]));
+    if (plantData.length === 0) return;
+
+    body += `━━━━━━━━━━━━━━━━━━━━━━\n`;
+    body += `📋 ${plant} - Programador: ${PLANT_PROGRAMMER[plant]}\n`;
+    body += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+    auditors.forEach(a => {
+      const recs = plantData.filter(r => r["Auditor Asignado"] === a);
+      if (recs.length === 0) return;
+
+      const igps = recs.filter(r => (r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
+      const hallazgos = recs.filter(r => !(r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
+
+      body += `👤 ${a}\n`;
+      if (igps.length > 0) {
+        body += `   IGP (${igps.length}):\n`;
+        igps.forEach(r => {
+          body += `   • ${r["Tipo de Auditoría"]} | ${r["Departamento"] || r["Área"] || ''} | Estado: ${r["Estado"]}\n`;
+        });
+      }
+      if (hallazgos.length > 0) {
+        body += `   Hallazgos (${hallazgos.length}):\n`;
+        hallazgos.forEach(r => {
+          body += `   • ${r["Tipo de Auditoría"]} | Estado: ${r["Estado"]}\n`;
+        });
+      }
+      body += '\n';
+    });
+  });
+
+  const subject = selectedProgrammer === 'all'
+    ? 'Reporte IGP - Todas las Plantas'
+    : `Reporte IGP - ${selectedProgrammer}`;
+
+  window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+// --- MODAL DE EXPORTACIÓN ---
+function showExportModal(type) {
+  // type = 'email' o 'pdf'
+  const programmers = [...new Set(Object.values(PLANT_PROGRAMMER))];
+
+  let modal = document.getElementById('export-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'export-modal';
+    document.body.appendChild(modal);
+  }
+
+  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:200;display:flex;align-items:center;justify-content:center;';
+  modal.innerHTML = `
+    <div style="background:white;border-radius:12px;padding:24px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <h3 style="margin:0 0 16px 0;font-size:16px;color:var(--primary-color);">
+        <i class="fas fa-${type === 'email' ? 'envelope' : 'file-pdf'}" style="color:var(--accent-color);margin-right:8px;"></i>
+        ${type === 'email' ? 'Enviar Correo' : 'Descargar PDF'}
+      </h3>
+      <p style="font-size:13px;color:var(--text-secondary);margin:0 0 16px 0;">Selecciona el programador para el reporte:</p>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button onclick="closeExportModal(); ${type === 'email' ? "sendEmail('all')" : "exportAllPlantsPDF('all')"};"
+          style="padding:12px 16px;border:1px solid var(--border-color);border-radius:8px;background:#F8FAFC;cursor:pointer;font-size:13px;font-weight:600;text-align:left;transition:all 0.2s;"
+          onmouseover="this.style.background='#E0F2FE'" onmouseout="this.style.background='#F8FAFC'">
+          <i class="fas fa-globe" style="margin-right:8px;color:var(--accent-color);"></i> Todos los Programadores
+        </button>
+        ${programmers.map(p => `
+        <button onclick="closeExportModal(); ${type === 'email' ? `sendEmail('${p}')` : `exportAllPlantsPDF('${p}')`};"
+          style="padding:12px 16px;border:1px solid var(--border-color);border-radius:8px;background:#F8FAFC;cursor:pointer;font-size:13px;font-weight:500;text-align:left;transition:all 0.2s;"
+          onmouseover="this.style.background='#E0F2FE'" onmouseout="this.style.background='#F8FAFC'">
+          <i class="fas fa-user" style="margin-right:8px;color:#64748B;"></i> ${p}
+          <span style="font-size:11px;color:#94A3B8;margin-left:4px;">
+            (${Object.keys(PLANT_PROGRAMMER).find(plant => PLANT_PROGRAMMER[plant] === p) || ''})
+          </span>
+        </button>`).join('')}
+      </div>
+      <button onclick="closeExportModal()"
+        style="margin-top:16px;width:100%;padding:10px;border:none;border-radius:8px;background:#F1F5F9;cursor:pointer;font-size:12px;color:#64748B;">
+        Cancelar
+      </button>
+    </div>`;
+}
+
+function closeExportModal() {
+  const modal = document.getElementById('export-modal');
+  if (modal) modal.remove();
 }
 
 function generateHistoryReport() {

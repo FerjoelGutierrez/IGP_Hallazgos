@@ -79,8 +79,11 @@
           <i class="fas fa-upload"></i> <span>Cargar Excel</span>
         </button>
         <input type="file" id="file-input" accept=".xlsx, .xls" style="display:none;">
-        <button class="btn btn-secondary" onclick="sendEmail()">
+        <button class="btn btn-secondary" onclick="showExportModal('email')">
           <i class="fas fa-envelope"></i> <span>Enviar Correo</span>
+        </button>
+        <button class="btn btn-secondary" onclick="showExportModal('pdf')">
+          <i class="fas fa-file-pdf"></i> <span>PDF</span>
         </button>
         <button class="btn" onclick="window.print()">
           <i class="fas fa-print"></i> <span>Imprimir</span>
