@@ -67,6 +67,11 @@ function handleFiles(files) {
       const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
       const savedEdits = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
 
+      // Log column names for debugging
+      if (json.length > 0) {
+        console.log('📋 Columnas del Excel:', Object.keys(json[0]));
+      }
+
       const newRecords = json
         .filter(r => {
           const audName = r["Auditor Asignado"] || "";
@@ -91,10 +96,23 @@ function handleFiles(files) {
       const savedOk = await saveRecordsToSupabase(newRecords);
       if (savedOk) {
         console.log('✅ Datos sincronizados con Supabase');
-        // Recargar TODO desde Supabase para tener historial completo
+        // Recargar desde Supabase para historial completo
         const allData = await loadRecordsFromSupabase();
         if (allData && allData.length > 0) {
-          rawData = allData;
+          // Merge: usar datos de Supabase pero agregar campos extra del Excel recién subido
+          const mergedData = allData.map(supa => {
+            // Buscar el registro correspondiente en newRecords para obtener Departamento
+            const match = newRecords.find(nr =>
+              nr["Auditor Asignado"] === supa["Auditor Asignado"] &&
+              nr["Fecha de Creación"] === supa["Fecha de Creación"] &&
+              nr["Tipo de Auditoría"] === supa["Tipo de Auditoría"]
+            );
+            if (match) {
+              supa["Departamento"] = match["Departamento"] || match["Departam"] || match["Departam."] || '';
+            }
+            return supa;
+          });
+          rawData = mergedData;
         } else {
           rawData = newRecords;
         }

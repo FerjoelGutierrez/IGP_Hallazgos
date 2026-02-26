@@ -260,7 +260,14 @@ async function renderAssignment() {
       if (!inspector) return;
 
       const key = `${inspector}_${mes}`;
-      const depto = r["Departamento"] || '';
+      // Buscar Departamento con variaciones de nombre de columna
+      let depto = r["Departamento"] || '';
+      if (!depto) {
+        // Intentar variaciones del nombre de columna del Excel
+        const keys = Object.keys(r);
+        const deptoKey = keys.find(k => k.toLowerCase().startsWith('departam'));
+        if (deptoKey) depto = r[deptoKey] || '';
+      }
 
       if (!autoAssignments[key]) {
         autoAssignments[key] = { igp_tema: tipo, igp_depto: depto };
