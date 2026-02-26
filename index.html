@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard IGP – Vitapro (Pro)</title>
+  <meta name="description" content="Dashboard de Inspección General Programada para Vitapro. Monitoreo de cumplimiento, reportes por planta y análisis avanzado." />
+
+  <!-- External Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Icons & Fonts -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- App Styles -->
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <!-- Welcome / Upload Screen -->
+  <div id="welcome-screen">
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <i class="fas fa-cloud-upload-alt"></i>
+      <h2>Cargar Reporte IGP</h2>
+      <p>Arrastra tu archivo Excel aquí o haz clic para buscar</p>
+      <p style="font-size:12px; margin-top:10px; color:rgba(255,255,255,0.5);">Soporta .xlsx y .xls</p>
+    </div>
+  </div>
+
+  <!-- Sidebar Navigation -->
+  <nav class="sidebar no-print">
+    <div class="sidebar-header">
+      <i class="fas fa-chart-line" style="margin-right: 10px;"></i> VITAPRO
+    </div>
+    <div class="sidebar-menu">
+      <div class="menu-item active" onclick="switchView('dashboard', this)">
+        <i class="fas fa-home"></i> Dashboard General
+      </div>
+      <div class="menu-item" onclick="switchView('plants', this)">
+        <i class="fas fa-industry"></i> Reporte por Planta
+      </div>
+      <div class="menu-item" onclick="switchView('details', this)">
+        <i class="fas fa-list"></i> Detalle Registros
+      </div>
+      <div class="menu-item" onclick="switchView('analysis', this)">
+        <i class="fas fa-search-dollar"></i> Análisis Avanzado
+      </div>
+      <div class="menu-item" onclick="switchView('history', this)">
+        <i class="fas fa-history"></i> Histórico / Backups
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      IGP Dashboard v3.0 (Pro)<br>
+      © 2025 Vitapro
+    </div>
+  </nav>
+
+  <!-- Main Content Area -->
+  <main class="main-content">
+    <div class="top-bar no-print">
+      <div class="page-title" id="page-title">Dashboard General</div>
+      <div style="display:flex; gap:10px;">
+        <button class="btn btn-secondary" onclick="document.getElementById('file-input').click()">
+          <i class="fas fa-upload"></i> Cargar Excel
+        </button>
+        <input type="file" id="file-input" accept=".xlsx, .xls" style="display:none;">
+        <button class="btn btn-secondary" onclick="sendEmail()">
+          <i class="fas fa-envelope"></i> Enviar Correo
+        </button>
+        <button class="btn" onclick="window.print()">
+          <i class="fas fa-print"></i> Imprimir
+        </button>
+      </div>
+    </div>
+
+    <div class="content-scroll">
+
+      <!-- Global Filters -->
+      <div class="card no-print">
+        <div class="card-header" style="border:none; padding-bottom:0; margin-bottom:10px;">
+          <h3 style="font-size:13px; text-transform:uppercase; color:var(--text-secondary);">
+            <i class="fas fa-filter"></i> Filtros Globales (Multi-selección)
+          </h3>
+        </div>
+        <div class="filters-grid">
+          <div id="filter-year"></div>
+          <div id="filter-month"></div>
+          <div id="filter-area"></div>
+          <div id="filter-type"></div>
+          <div id="filter-auditor"></div>
+          <div id="filter-programmer"></div>
+        </div>
+      </div>
+
+      <!-- VIEW: Dashboard General -->
+      <div id="view-dashboard" class="view-section active">
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-title">Total Visible</div>
+            <div class="kpi-value" id="kpi-total">0</div>
+            <div class="kpi-sub">Registros Filtrados</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-title">Ejecutadas</div>
+            <div class="kpi-value" id="kpi-ejec" style="color:var(--status-success);">0</div>
+            <div class="kpi-sub">Cerradas</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-title">En Proceso</div>
+            <div class="kpi-value" id="kpi-proc" style="color:var(--status-warning);">0</div>
+            <div class="kpi-sub">Seguimiento Activo</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-title">Pendientes</div>
+            <div class="kpi-value" id="kpi-pend" style="color:var(--status-error);">0</div>
+            <div class="kpi-sub">Atención Requerida</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-title">% Eficacia</div>
+            <div class="kpi-value" id="kpi-cump">0%</div>
+            <div class="kpi-sub" id="kpi-cump-sub">Ejecutadas vs Planificadas</div>
+          </div>
+        </div>
+
+        <div class="charts-grid">
+          <div class="card">
+            <div class="card-header"><h3>Evolución Mensual</h3></div>
+            <div class="chart-container"><canvas id="chart-evolution"></canvas></div>
+            <div id="analysis-evolution" class="analysis-box"></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>Distribución de Estados</h3></div>
+            <div class="chart-container"><canvas id="chart-dist"></canvas></div>
+            <div id="analysis-dist" class="analysis-box"></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>Estado por Planta (Comparativo)</h3></div>
+            <div class="chart-container"><canvas id="chart-plant"></canvas></div>
+            <div id="analysis-plant" class="analysis-box"></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>Tendencia Cumplimiento (%)</h3></div>
+            <div class="chart-container"><canvas id="chart-trend"></canvas></div>
+            <div id="analysis-trend" class="analysis-box"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header" style="flex-wrap: wrap; gap: 10px;">
+            <h3>Matriz de Cumplimiento</h3>
+            <div style="display:flex; gap:10px; align-items:center;">
+              <button class="btn btn-secondary btn-sm" onclick="exportTableToPDF('table-matrix-container', 'Matriz_Cumplimiento')">
+                <i class="fas fa-file-pdf"></i> PDF
+              </button>
+            </div>
+          </div>
+          <div id="table-matrix-container" class="table-container"></div>
+        </div>
+      </div>
+
+      <!-- VIEW: Plant Reports -->
+      <div id="view-plants" class="view-section">
+        <div class="card no-print">
+          <div class="card-header">
+            <h3>Acciones Globales</h3>
+            <button class="btn" onclick="exportAllPlantsPDF()">
+              <i class="fas fa-file-pdf"></i> Exportar Todo a PDF
+            </button>
+          </div>
+        </div>
+        <div id="plant-reports-container"></div>
+      </div>
+
+      <!-- VIEW: Details -->
+      <div id="view-details" class="view-section">
+        <div class="card">
+          <div class="card-header">
+            <h3>Detalle de Registros</h3>
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-secondary btn-sm" onclick="exportToExcel(filteredData)">
+                <i class="fas fa-file-excel"></i> Excel
+              </button>
+              <button class="btn btn-secondary btn-sm" onclick="exportTableToPDF('table-details-container', 'Detalle_Registros')">
+                <i class="fas fa-file-pdf"></i> PDF
+              </button>
+            </div>
+          </div>
+          <div id="table-details-container" class="table-container" style="max-height:600px; overflow-y:auto;"></div>
+        </div>
+      </div>
+
+      <!-- VIEW: Analysis -->
+      <div id="view-analysis" class="view-section">
+        <div class="card">
+          <div class="card-header"><h3>Análisis Mensual</h3></div>
+          <div id="table-analysis-month" class="table-container"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>Ranking de Auditores</h3></div>
+          <div id="table-analysis-auditor" class="table-container"></div>
+        </div>
+      </div>
+
+      <!-- VIEW: History -->
+      <div id="view-history" class="view-section">
+        <div class="card">
+          <div class="card-header"><h3>Generador de Reportes Históricos</h3></div>
+          <div style="padding: 20px; text-align: center;">
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">
+              Seleccione un mes y año para generar un reporte PDF completo.
+            </p>
+            <div style="display: inline-flex; gap: 10px; align-items: center; margin-bottom: 20px;">
+              <select id="hist-month" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+                <option value="">Seleccionar Mes</option>
+                <option value="Ene">Enero</option><option value="Feb">Febrero</option>
+                <option value="Mar">Marzo</option><option value="Abr">Abril</option>
+                <option value="May">Mayo</option><option value="Jun">Junio</option>
+                <option value="Jul">Julio</option><option value="Ago">Agosto</option>
+                <option value="Sep">Septiembre</option><option value="Oct">Octubre</option>
+                <option value="Nov">Noviembre</option><option value="Dic">Diciembre</option>
+              </select>
+              <select id="hist-year" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+                <option value="2024">2024</option><option value="2025">2025</option>
+              </select>
+              <button class="btn" onclick="generateHistoryReport()">
+                <i class="fas fa-download"></i> Generar Reporte PDF
+              </button>
+            </div>
+            <div style="margin-top: 40px; border-top: 1px solid var(--border-color); padding-top: 20px;">
+              <h4 style="margin-top:0; color:var(--primary-color);">Zona de Peligro</h4>
+              <button class="btn btn-secondary" onclick="clearSavedData()" style="color:var(--status-error); border-color:var(--status-error);">
+                <i class="fas fa-trash-alt"></i> Borrar Datos y Reiniciar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- CRM Modal -->
+  <div id="crm-modal" class="no-print" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
+    <div class="card" style="width:400px; max-width:90%;">
+      <div class="card-header">
+        <h3>Gestión CRM</h3>
+        <button onclick="closeModal()" style="border:none; background:none; font-size:18px; cursor:pointer;">&times;</button>
+      </div>
+      <div style="margin-bottom:15px;">
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Estado</label>
+        <select id="crm-status" style="width:100%; padding:8px; border:1px solid var(--border-color); border-radius:6px;">
+          <option value="E">Ejecutado (E)</option>
+          <option value="P">Pendiente (P)</option>
+          <option value="EP">En Proceso (EP)</option>
+        </select>
+      </div>
+      <div style="margin-bottom:15px;">
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Observaciones</label>
+        <textarea id="crm-obs" rows="4" style="width:100%; padding:8px; border:1px solid var(--border-color); border-radius:6px;"></textarea>
+      </div>
+      <div style="text-align:right; display:flex; gap:10px; justify-content:flex-end;">
+        <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+        <button class="btn" onclick="saveCRM()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- App Scripts (order matters) -->
+  <script src="js/config.js"></script>
+  <script src="js/helpers.js"></script>
+  <script src="js/renderers.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
