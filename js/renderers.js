@@ -147,11 +147,24 @@ function renderPlantReport(data) {
 
     const audStats = {};
     const audCounts = {};
+    const audTypeCounts = {}; // { auditor: { igp: N, hallazgo: N } }
 
     auditors.forEach(a => {
       const recs = plantData.filter(r => r["Auditor Asignado"] === a);
       if (recs.length > 0) {
         audCounts[a] = recs.length;
+        // Contar por tipo
+        let igpCount = 0, hallazgoCount = 0;
+        recs.forEach(r => {
+          const tipo = (r["Tipo de Auditoría"] || '').toLowerCase();
+          if (tipo.includes('hallazgo') || tipo.includes('acto') || tipo.includes('subestandar') || tipo.includes('subestándar')) {
+            hallazgoCount++;
+          } else {
+            igpCount++;
+          }
+        });
+        audTypeCounts[a] = { igp: igpCount, hallazgo: hallazgoCount };
+
         let s = "ND";
         if (recs.some(r => getShortStatus(r["Estado"]) === 'P')) s = 'P';
         else if (recs.some(r => getShortStatus(r["Estado"]) === 'EP')) s = 'EP';
@@ -192,13 +205,21 @@ function renderPlantReport(data) {
           </tr></thead>
           <tbody>
             ${activeAuds.map(a => {
-              let warn = audCounts[a] === 2
-                ? `<span style="font-size:10px;color:#F59E0B;margin-left:6px;font-weight:bold;">
-                     <i class="fas fa-exclamation-circle"></i> 2 IGP</span>` : '';
+              // Construir badges por tipo
+              const tc = audTypeCounts[a] || { igp: 0, hallazgo: 0 };
+              let badges = '';
+              if (tc.igp > 1) {
+                badges += `<span style="font-size:9px;color:#F59E0B;margin-left:4px;font-weight:bold;">
+                  <i class="fas fa-exclamation-circle"></i> ${tc.igp} IGP</span>`;
+              }
+              if (tc.hallazgo > 0) {
+                badges += `<span style="font-size:9px;color:#EF4444;margin-left:4px;font-weight:bold;">
+                  <i class="fas fa-flag"></i> ${tc.hallazgo} Hallazgo${tc.hallazgo > 1 ? 's' : ''}</span>`;
+              }
               const areaCell = showArea
                 ? `<td><span style="background:#E0F2FE;color:#0369A1;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;">${AUDITOR_AREA[a] || 'N/D'}</span></td>`
                 : '';
-              return `<tr><td style="text-align:left;">${a} ${warn}</td>
+              return `<tr><td style="text-align:left;">${a} ${badges}</td>
                 ${areaCell}
                 <td><span class="status-pill ${audStats[a].toLowerCase()}">${audStats[a]}</span></td></tr>`;
             }).join('')}
