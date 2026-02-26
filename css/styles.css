@@ -370,7 +370,12 @@ td.cell-ep { background: #FEF3C7; color: #92400E; font-weight: 600; }
   font-family: 'Inter', sans-serif;
   background: transparent;
   color: var(--text-main);
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, background 0.2s ease;
+  resize: none;
+  overflow: hidden;
+  min-height: 28px;
+  line-height: 1.4;
+  display: block;
 }
 
 .assign-cell:hover {
@@ -392,7 +397,7 @@ td.cell-ep { background: #FEF3C7; color: #92400E; font-weight: 600; }
 
 .assign-table td {
   padding: 4px !important;
-  vertical-align: middle;
+  vertical-align: top;
 }
 
 .assign-table tbody tr:hover {
@@ -445,8 +450,8 @@ td.cell-ep { background: #FEF3C7; color: #92400E; font-weight: 600; }
    ======================================== */
 @media (max-width: 768px) {
   :root {
-    --sidebar-width: 280px;
-    --header-height: 56px;
+    --sidebar-width: 260px;
+    --header-height: 44px;
   }
 
   body {
@@ -465,36 +470,25 @@ td.cell-ep { background: #FEF3C7; color: #92400E; font-weight: 600; }
     transition: left 0.3s ease;
   }
 
-  .sidebar.open {
-    left: 0;
-  }
+  .sidebar.open { left: 0; }
 
   .sidebar-header {
     height: var(--header-height);
-    padding: 0 20px;
-    font-size: 18px;
-  }
-
-  .sidebar-menu {
-    padding: 16px 12px;
-    gap: 2px;
-  }
-
-  .menu-item {
-    padding: 12px 16px;
-    font-size: 14px;
-    gap: 12px;
-  }
-
-  .menu-item i {
-    width: 20px;
+    padding: 0 16px;
     font-size: 16px;
   }
 
-  .sidebar-footer {
-    padding: 16px;
-    font-size: 11px;
+  .sidebar-menu { padding: 10px 8px; gap: 1px; }
+
+  .menu-item {
+    padding: 10px 14px;
+    font-size: 13px;
+    gap: 10px;
+    border-radius: 8px;
   }
+
+  .menu-item i { width: 18px; font-size: 13px; }
+  .sidebar-footer { padding: 12px; font-size: 10px; }
 
   /* --- Main Content --- */
   .main-content {
@@ -503,36 +497,44 @@ td.cell-ep { background: #FEF3C7; color: #92400E; font-weight: 600; }
     overflow: hidden;
   }
 
-  /* --- Top Bar --- */
+  /* --- Top Bar (ultra compact) --- */
   .top-bar {
     height: var(--header-height);
-    padding: 0 16px;
-    gap: 8px;
+    padding: 0 10px;
+    gap: 4px;
   }
 
   .hamburger-btn {
     display: flex;
     align-items: center;
     justify-content: center;
+    font-size: 18px;
+    padding: 4px;
   }
 
   .page-title {
-    font-size: 16px;
+    font-size: 13px;
     flex: 1;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-weight: 600;
   }
 
-  .top-bar > div:last-child {
-    gap: 6px !important;
-  }
+  .top-bar > div:last-child { gap: 4px !important; }
 
+  /* Botones icon-only en móvil */
   .top-bar .btn,
   .top-bar .btn-secondary {
-    padding: 6px 10px;
-    font-size: 11px;
-    gap: 4px;
+    padding: 5px 8px;
+    font-size: 10px;
+    gap: 3px;
+    border-radius: 6px;
+  }
+
+  .top-bar .btn span,
+  .top-bar .btn-secondary span {
+    display: none;
   }
 
   .top-bar .btn i,
@@ -540,17 +542,9 @@ td.cell-ep { background: #FEF3C7; color: #92400E; font-weight: 600; }
     font-size: 12px;
   }
 
-  /* Hide button text on very small screens */
-  @media (max-width: 420px) {
-    .top-bar .btn span,
-    .top-bar .btn-secondary span {
-      display: none;
-    }
-  }
-
   /* --- Content Scroll --- */
   .content-scroll {
-    padding: 16px;
+    padding: 10px;
     flex: 1;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
@@ -558,161 +552,184 @@ td.cell-ep { background: #FEF3C7; color: #92400E; font-weight: 600; }
 
   /* --- Cards --- */
   .card {
-    padding: 16px;
-    margin-bottom: 16px;
-    border-radius: var(--radius-md);
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 8px;
   }
 
   .card-header {
-    margin-bottom: 16px;
-    padding-bottom: 12px;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
   }
 
-  .card-header h3 {
-    font-size: 15px;
-  }
+  .card-header h3 { font-size: 13px; }
 
-  /* --- Filters --- */
+  /* --- Filters (ultra compact) --- */
   .filters-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
   }
 
   .filter-btn {
-    padding: 10px 12px;
+    padding: 6px 8px;
+    font-size: 10px;
+    border-radius: 6px;
+  }
+
+  .filter-btn i { font-size: 8px; }
+
+  .filter-dropdown {
+    padding: 8px;
+    border-radius: 8px;
+  }
+
+  .filter-option {
+    padding: 6px 8px;
     font-size: 12px;
   }
 
-  /* --- KPI Grid --- */
+  .filter-search {
+    padding: 6px 8px;
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+
+  /* --- KPI Grid (compact) --- */
   .kpi-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-    margin-bottom: 20px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-bottom: 10px;
   }
 
   .kpi-card {
-    padding: 16px;
-    border-radius: var(--radius-md);
+    padding: 8px 10px;
+    border-radius: 8px;
   }
+
+  .kpi-card::before { width: 4px; }
 
   .kpi-value {
-    font-size: 26px;
-    margin: 8px 0 2px 0;
+    font-size: 18px;
+    margin: 4px 0 2px 0;
   }
 
-  .kpi-title {
-    font-size: 10px;
-  }
-
-  .kpi-sub {
-    font-size: 10px;
-  }
+  .kpi-title { font-size: 8px; letter-spacing: 0.02em; }
+  .kpi-sub { font-size: 8px; }
 
   /* --- Charts --- */
   .charts-grid {
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 10px;
   }
 
-  .chart-container {
-    height: 250px;
-  }
+  .chart-container { height: 200px; }
 
-  /* --- Tables --- */
+  /* --- Tables (compact) --- */
   .table-container {
-    border-radius: var(--radius-sm);
+    border-radius: 6px;
     -webkit-overflow-scrolling: touch;
   }
 
-  table {
-    font-size: 12px;
-  }
+  table { font-size: 10px; }
 
   thead th {
-    padding: 10px 8px;
-    font-size: 10px;
+    padding: 6px 4px;
+    font-size: 8px;
     white-space: nowrap;
+    letter-spacing: 0.02em;
   }
 
   tbody td {
-    padding: 10px 8px;
-    font-size: 12px;
-  }
-
-  /* --- Status Pills --- */
-  .status-pill {
-    padding: 4px 10px;
+    padding: 6px 4px;
     font-size: 10px;
   }
 
+  /* --- Status Pills (micro) --- */
+  .status-pill {
+    padding: 2px 8px;
+    font-size: 9px;
+    border-radius: 12px;
+  }
+
+  /* --- Buttons general --- */
+  .btn { padding: 6px 12px; font-size: 11px; gap: 4px; border-radius: 6px; }
+  .btn-secondary { padding: 6px 12px; font-size: 11px; }
+  .btn-sm { padding: 4px 8px; font-size: 10px; }
+
   /* --- Welcome Screen --- */
   .drop-zone {
-    width: 90vw;
-    min-height: 250px;
-    padding: 24px;
-    border-radius: 16px;
+    width: 85vw;
+    min-height: 200px;
+    padding: 20px;
+    border-radius: 12px;
   }
 
-  .drop-zone i {
-    font-size: 48px;
-    margin-bottom: 16px;
-  }
-
-  .drop-zone h2 {
-    font-size: 22px;
-  }
-
-  .drop-zone p {
-    font-size: 13px;
-  }
+  .drop-zone i { font-size: 36px; margin-bottom: 12px; }
+  .drop-zone h2 { font-size: 18px; margin-bottom: 8px; }
+  .drop-zone p { font-size: 12px; }
 
   /* --- Analysis --- */
   .analysis-box {
-    margin-top: 12px;
-    padding: 12px 16px;
-    font-size: 12px;
+    margin-top: 8px;
+    padding: 8px 12px;
+    font-size: 11px;
   }
 
   /* --- CRM Modal --- */
   #crm-modal .card {
     width: 95% !important;
-    max-width: 400px;
-    margin: 16px;
+    max-width: 380px;
+    padding: 14px;
   }
 
   /* --- Assignment Table (mobile) --- */
   .assign-cell {
-    padding: 4px 6px;
-    font-size: 10px;
-    min-width: 120px;
+    padding: 3px 4px;
+    font-size: 9px;
+    min-height: 22px;
+    min-width: 100px;
   }
 
-  .assign-table td {
-    padding: 3px !important;
-  }
+  .assign-table td { padding: 2px !important; }
 }
 
 /* ========================================
    SMALL MOBILE (max-width: 420px)
    ======================================== */
 @media (max-width: 420px) {
+  :root { --header-height: 40px; }
+
   .kpi-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
   }
 
-  .kpi-card { padding: 12px; }
-  .kpi-value { font-size: 22px; }
+  .kpi-card { padding: 6px 8px; }
+  .kpi-value { font-size: 16px; }
+  .kpi-title { font-size: 7px; }
+  .kpi-sub { display: none; }
 
   .filters-grid {
-    grid-template-columns: 1fr;
-    gap: 6px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 3px;
   }
 
-  .content-scroll { padding: 12px; }
-  .card { padding: 12px; margin-bottom: 12px; }
+  .filter-btn { padding: 5px 6px; font-size: 9px; }
+
+  .content-scroll { padding: 8px; }
+  .card { padding: 8px; margin-bottom: 8px; }
+  .card-header h3 { font-size: 12px; }
+
+  .chart-container { height: 180px; }
+
+  table { font-size: 9px; }
+  thead th { padding: 4px 3px; font-size: 7px; }
+  tbody td { padding: 4px 3px; font-size: 9px; }
+
+  .page-title { font-size: 12px; }
+  .hamburger-btn { font-size: 16px; }
 }
 
 /* --- Print --- */
@@ -723,3 +740,4 @@ td.cell-ep { background: #FEF3C7; color: #92400E; font-weight: 600; }
   .content-scroll { padding: 0; overflow: visible; }
   body { overflow: visible; height: auto; }
 }
+

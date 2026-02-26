@@ -340,40 +340,73 @@ async function clearSavedData() {
 window.addEventListener('DOMContentLoaded', async () => {
   setupFileHandlers();
 
-  // 1. Intentar cargar de Supabase primero
-  let loadedFromSupabase = false;
+  // Mostrar indicador de carga
+  const welcomeScreen = document.getElementById('welcome-screen');
+  const loadingMsg = document.createElement('p');
+  loadingMsg.style.cssText = 'color:rgba(255,255,255,0.6); margin-top:20px; font-size:14px;';
+  loadingMsg.textContent = '⏳ Buscando datos guardados...';
+  welcomeScreen.appendChild(loadingMsg);
+
+  let dataLoaded = false;
+
+  // 1. Intentar cargar de Supabase
   try {
-    const supaData = await loadRecordsFromSupabase();
-    if (supaData && supaData.length > 0) {
-      rawData = supaData;
-      loadedFromSupabase = true;
-      console.log(`✅ ${rawData.length} registros cargados de Supabase`);
+    const sb = getSupabase();
+    if (sb) {
+      loadingMsg.textContent = '☁️ Conectando con Supabase...';
+      const supaData = await loadRecordsFromSupabase();
+      if (supaData && supaData.length > 0) {
+        rawData = supaData;
+        dataLoaded = true;
+        // Actualizar localStorage como backup
+        localStorage.setItem(STORAGE_DATA_KEY, JSON.stringify(rawData));
+        console.log(`✅ ${rawData.length} registros cargados de Supabase`);
+        loadingMsg.textContent = `✅ ${rawData.length} registros cargados de la nube`;
+      } else {
+        console.log('ℹ️ No hay datos en Supabase');
+        loadingMsg.textContent = 'ℹ️ No hay datos en Supabase, buscando localmente...';
+      }
     }
   } catch (err) {
-    console.warn('No se pudo cargar de Supabase:', err);
+    console.warn('⚠️ Error conectando con Supabase:', err);
+    loadingMsg.textContent = '⚠️ Error de conexión, buscando datos locales...';
   }
 
-  // 2. Si no hay datos en Supabase, intentar localStorage
-  if (!loadedFromSupabase) {
-    const savedData = localStorage.getItem(STORAGE_DATA_KEY);
-    if (savedData) {
-      try {
+  // 2. Fallback: localStorage
+  if (!dataLoaded) {
+    try {
+      const savedData = localStorage.getItem(STORAGE_DATA_KEY);
+      if (savedData) {
         const temp = JSON.parse(savedData);
-        rawData = temp
-          .filter(r => r["Auditor Asignado"] && !BLOCKED_AUDITORS_SET.has(r["Auditor Asignado"].toLowerCase().trim()))
-          .map((r, i) => {
-            if (!r["Programador"]) r["Programador"] = getProgrammerFromAuditor(r["Auditor Asignado"] || '');
-            r._id = (typeof r._id === 'number') ? r._id : i;
-            return r;
+        if (temp && temp.length > 0) {
+          rawData = temp
+            .filter(r => r["Auditor Asignado"] && !BLOCKED_AUDITORS_SET.has(r["Auditor Asignado"].toLowerCase().trim()))
+            .map((r, i) => {
+              if (!r["Programador"]) r["Programador"] = getProgrammerFromAuditor(r["Auditor Asignado"] || '');
+              r._id = (typeof r._id === 'number') ? r._id : i;
+              return r;
+            });
+          dataLoaded = true;
+          console.log(`✅ ${rawData.length} registros cargados de localStorage`);
+          loadingMsg.textContent = `✅ ${rawData.length} registros cargados localmente`;
+
+          // Intentar sincronizar con Supabase en segundo plano
+          saveRecordsToSupabase(rawData).then(ok => {
+            if (ok) console.log('☁️ Datos locales sincronizados con Supabase');
           });
-      } catch (e) { console.error(e); }
+        }
+      }
+    } catch (e) {
+      console.error('Error cargando de localStorage:', e);
     }
   }
 
-  // 3. Si hay datos, ocultar welcome screen e inicializar
-  if (rawData.length > 0) {
-    document.getElementById('welcome-screen').classList.add('hidden');
-    document.getElementById('welcome-screen').style.display = 'none';
+  // 3. Mostrar dashboard o welcome screen
+  if (dataLoaded && rawData.length > 0) {
+    welcomeScreen.classList.add('hidden');
+    setTimeout(() => { welcomeScreen.style.display = 'none'; }, 500);
     initDashboard();
+  } else {
+    loadingMsg.textContent = 'No hay datos guardados. Sube un archivo Excel para comenzar.';
   }
 });

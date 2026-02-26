@@ -305,19 +305,21 @@ async function renderAssignment() {
         const areaId = `area_${plant.replace(/\s/g, '')}_${a.replace(/\s/g, '_')}_${m}`;
 
         html += `
-                <td style="padding:2px; border-left:2px solid #E2E8F0; min-width:180px;">
-                  <input type="text" id="${temaId}" value="${escapeHtml(d.igp_tema)}"
+                <td style="padding:2px; border-left:2px solid #E2E8F0; min-width:180px; vertical-align:top;">
+                  <textarea id="${temaId}"
                     class="assign-cell"
                     placeholder="Tema IGP..."
                     onblur="onAssignCellBlur('${safeName}', ${m})"
-                    data-inspector="${a}" data-mes="${m}" data-field="tema" />
+                    oninput="autoResizeCell(this)"
+                    data-inspector="${a}" data-mes="${m}" data-field="tema">${escapeHtml(d.igp_tema)}</textarea>
                 </td>
-                <td style="padding:2px; min-width:120px;">
-                  <input type="text" id="${areaId}" value="${escapeHtml(d.igp_area)}"
+                <td style="padding:2px; min-width:120px; vertical-align:top;">
+                  <textarea id="${areaId}"
                     class="assign-cell"
                     placeholder="Área..."
                     onblur="onAssignCellBlur('${safeName}', ${m})"
-                    data-inspector="${a}" data-mes="${m}" data-field="area" />
+                    oninput="autoResizeCell(this)"
+                    data-inspector="${a}" data-mes="${m}" data-field="area">${escapeHtml(d.igp_area)}</textarea>
                 </td>`;
       }
 
@@ -328,6 +330,18 @@ async function renderAssignment() {
   });
 
   container.innerHTML = html;
+
+  // Auto-resize todas las celdas después de renderizar
+  setTimeout(() => autoResizeAllCells(), 50);
+}
+
+function autoResizeCell(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
+function autoResizeAllCells() {
+  document.querySelectorAll('.assign-cell').forEach(el => autoResizeCell(el));
 }
 
 function escapeHtml(str) {
