@@ -260,16 +260,16 @@ async function renderAssignment() {
       if (!inspector) return;
 
       const key = `${inspector}_${mes}`;
-      const area = r["Departamento"] || r["Área"] || '';
+      const depto = r["Departamento"] || '';
 
       if (!autoAssignments[key]) {
-        autoAssignments[key] = { igp_tema: tipo, igp_area: area };
+        autoAssignments[key] = { igp_tema: tipo, igp_depto: depto };
       } else {
         if (tipo && !autoAssignments[key].igp_tema.includes(tipo)) {
           autoAssignments[key].igp_tema += '\n' + tipo;
         }
-        if (area && !autoAssignments[key].igp_area.includes(area)) {
-          autoAssignments[key].igp_area += '\n' + area;
+        if (depto && !autoAssignments[key].igp_depto.includes(depto)) {
+          autoAssignments[key].igp_depto += '\n' + depto;
         }
       }
     });
@@ -290,7 +290,7 @@ async function renderAssignment() {
     if (a.igp_tema || a.igp_area) {
       assignmentData[key] = {
         igp_tema: a.igp_tema || '',
-        igp_area: a.igp_area || ''
+        igp_depto: a.igp_area || ''
       };
     }
   });
@@ -303,7 +303,7 @@ async function renderAssignment() {
       const mes = parseInt(mesStr);
       if (inspector && mes) {
         saveAssignment(inspector, currentAssignYear, mes,
-          autoAssignments[key].igp_tema, autoAssignments[key].igp_area);
+          autoAssignments[key].igp_tema, autoAssignments[key].igp_depto);
       }
     }
   }
@@ -357,7 +357,7 @@ async function renderAssignment() {
 
     for (let m = 1; m <= 12; m++) {
       html += `<th style="font-size:9px; border-left:2px solid #003d82;">IGP</th>
-               <th style="font-size:9px;">Área</th>`;
+               <th style="font-size:9px;">Depto</th>`;
     }
 
     html += `</tr></thead><tbody>`;
@@ -371,9 +371,9 @@ async function renderAssignment() {
 
       for (let m = 1; m <= 12; m++) {
         const key = `${a}_${m}`;
-        const d = assignmentData[key] || { igp_tema: '', igp_area: '' };
+        const d = assignmentData[key] || { igp_tema: '', igp_depto: '' };
         const temaId = `tema_${plant.replace(/\s/g, '')}_${a.replace(/\s/g, '_')}_${m}`;
-        const areaId = `area_${plant.replace(/\s/g, '')}_${a.replace(/\s/g, '_')}_${m}`;
+        const deptoId = `depto_${plant.replace(/\s/g, '')}_${a.replace(/\s/g, '_')}_${m}`;
 
         html += `<td class="assign-td" style="border-left:2px solid #E2E8F0;">
                   <div class="assign-cell" contenteditable="true" id="${temaId}"
@@ -382,10 +382,10 @@ async function renderAssignment() {
                     data-inspector="${a}" data-mes="${m}" data-field="tema">${escapeHtml(d.igp_tema).replace(/\n/g, '<br>')}</div>
                 </td>
                 <td class="assign-td">
-                  <div class="assign-cell" contenteditable="true" id="${areaId}"
+                  <div class="assign-cell" contenteditable="true" id="${deptoId}"
                     data-placeholder="..."
                     onblur="onAssignCellBlur('${safeName}', ${m})"
-                    data-inspector="${a}" data-mes="${m}" data-field="area">${escapeHtml(d.igp_area).replace(/\n/g, '<br>')}</div>
+                    data-inspector="${a}" data-mes="${m}" data-field="depto">${escapeHtml(d.igp_depto).replace(/\n/g, '<br>')}</div>
                 </td>`;
       }
 
@@ -406,23 +406,23 @@ function escapeHtml(str) {
 async function onAssignCellBlur(inspector, mes) {
   const allPlants = Object.keys(PLANT_GROUPS);
   let temaVal = '';
-  let areaVal = '';
+  let deptoVal = '';
 
   for (const plant of allPlants) {
     const pId = plant.replace(/\s/g, '');
     const iId = inspector.replace(/\s/g, '_');
     const temaEl = document.getElementById(`tema_${pId}_${iId}_${mes}`);
-    const areaEl = document.getElementById(`area_${pId}_${iId}_${mes}`);
+    const deptoEl = document.getElementById(`depto_${pId}_${iId}_${mes}`);
     if (temaEl) temaVal = temaEl.innerText.trim();
-    if (areaEl) areaVal = areaEl.innerText.trim();
+    if (deptoEl) deptoVal = deptoEl.innerText.trim();
   }
 
   // Actualizar cache
   const key = `${inspector}_${mes}`;
-  assignmentData[key] = { igp_tema: temaVal, igp_area: areaVal };
+  assignmentData[key] = { igp_tema: temaVal, igp_depto: deptoVal };
 
-  // Guardar en Supabase
-  const ok = await saveAssignment(inspector, currentAssignYear, mes, temaVal, areaVal);
+  // Guardar en Supabase (igp_area column stores depto value)
+  const ok = await saveAssignment(inspector, currentAssignYear, mes, temaVal, deptoVal);
   if (ok) {
     for (const plant of allPlants) {
       const pId = plant.replace(/\s/g, '');
