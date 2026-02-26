@@ -62,6 +62,20 @@ Object.keys(PLANT_GROUPS).forEach(p =>
   PLANT_GROUPS[p].forEach(a => AUDITOR_TO_PLANT[a.toLowerCase().trim()] = p)
 );
 
+// Áreas para inspectores de Planta Exteriores (Andrés Mena)
+const AUDITOR_AREA = {
+  "Andrea Padilla Nieto": "Inbalnor LE",
+  "Angel Rodriguez": "Inbalnor LE",
+  "Aura Hidalgo": "Inbalnor LE",
+  "Diego Lucero": "Inbalnor LE",
+  "Leonardo Girón": "Vitapro LS",
+  "Sharon Michaela Rivera Valencia": "Vitapro LS",
+  "Maria Gabriela Cornejo": "Vitapro LS",
+  "Juan Manuel Leon Llanos": "Vitapro LS",
+  "Kevin Jesus Zambrano Palacios": "Inbalnor LE",
+  "Ana Valeria Yong Mera": "Inbalnor"
+};
+
 const MONTH_NAMES = ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
 const FILTER_LABELS = {

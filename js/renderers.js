@@ -166,6 +166,9 @@ function renderPlantReport(data) {
     const eCount = activeAuds.filter(a => audStats[a] === 'E').length;
     const compliance = (eCount / activeAuds.length) * 100;
 
+    // Solo mostrar columna Área para Planta Exteriores (Andrés Mena)
+    const showArea = (plant === "Planta Exteriores");
+
     const card = document.createElement('div');
     card.className = 'card';
     card.innerHTML = `
@@ -182,13 +185,21 @@ function renderPlantReport(data) {
       </div>
       <div class="table-container" id="table-plant-${plant.replace(/\s/g, '')}">
         <table>
-          <thead><tr><th style="text-align:left;">Inspector</th><th>Estado</th></tr></thead>
+          <thead><tr>
+            <th style="text-align:left;">Inspector</th>
+            ${showArea ? '<th>Área</th>' : ''}
+            <th>Estado</th>
+          </tr></thead>
           <tbody>
             ${activeAuds.map(a => {
               let warn = audCounts[a] === 2
                 ? `<span style="font-size:10px;color:#F59E0B;margin-left:6px;font-weight:bold;">
                      <i class="fas fa-exclamation-circle"></i> 2 IGP</span>` : '';
+              const areaCell = showArea
+                ? `<td><span style="background:#E0F2FE;color:#0369A1;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;">${AUDITOR_AREA[a] || 'N/D'}</span></td>`
+                : '';
               return `<tr><td style="text-align:left;">${a} ${warn}</td>
+                ${areaCell}
                 <td><span class="status-pill ${audStats[a].toLowerCase()}">${audStats[a]}</span></td></tr>`;
             }).join('')}
           </tbody>
@@ -196,6 +207,107 @@ function renderPlantReport(data) {
       </div>`;
     container.appendChild(card);
   });
+}
+
+// --- PANEL DE ASIGNACIÓN IGP ---
+function renderAssignment(data) {
+  const container = document.getElementById('assignment-container');
+  if (!container) return;
+
+  // Obtener meses activos de los datos
+  const activeMonths = new Set();
+  data.forEach(r => {
+    const m = parseInt(r["Fecha de Creación"]?.substring(5, 7));
+    if (m) activeMonths.add(m);
+  });
+
+  let html = '';
+
+  Object.keys(PLANT_GROUPS).forEach(plant => {
+    const programmersName = PLANT_PROGRAMMER[plant] || "N/D";
+    const auditors = PLANT_GROUPS[plant];
+
+    // Construir datos por auditor y mes
+    const auditorMonthData = {};
+    auditors.forEach(a => {
+      auditorMonthData[a] = {};
+      for (let m = 1; m <= 12; m++) {
+        const recs = data.filter(r =>
+          r["Auditor Asignado"] === a &&
+          parseInt(r["Fecha de Creación"]?.substring(5, 7)) === m
+        );
+        if (recs.length > 0) {
+          const status = getShortStatus(recs[0]["Estado"]);
+          auditorMonthData[a][m] = { status, count: recs.length };
+        }
+      }
+    });
+
+    // Estadísticas generales de la planta
+    const plantData = data.filter(r => auditors.includes(r["Auditor Asignado"]));
+    const totalRecs = plantData.length;
+    const eRecs = plantData.filter(r => getShortStatus(r["Estado"]) === 'E').length;
+    const pRecs = plantData.filter(r => getShortStatus(r["Estado"]) === 'P').length;
+    const epRecs = plantData.filter(r => getShortStatus(r["Estado"]) === 'EP').length;
+    const compliancePct = totalRecs > 0 ? ((eRecs / totalRecs) * 100).toFixed(1) : '0.0';
+
+    const showArea = (plant === "Planta Exteriores");
+
+    html += `
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h3><i class="fas fa-industry" style="color:var(--accent-color);margin-right:8px;"></i>${plant}</h3>
+            <div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">
+              Programador: <b>${programmersName}</b> · 
+              <span style="color:var(--status-success);font-weight:600;">E: ${eRecs}</span> · 
+              <span style="color:var(--status-error);font-weight:600;">P: ${pRecs}</span> · 
+              <span style="color:var(--status-warning);font-weight:600;">EP: ${epRecs}</span> · 
+              Cumplimiento: <b>${compliancePct}%</b>
+            </div>
+          </div>
+        </div>
+        <div class="table-container" style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th style="text-align:left; min-width:200px;">Inspector</th>
+                ${showArea ? '<th style="min-width:100px;">Área</th>' : ''}
+                ${MONTH_NAMES.slice(1).map(m => `<th style="min-width:55px;">${m}</th>`).join('')}
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${auditors.map(a => {
+                let totalAssigned = 0;
+                const cells = [];
+                for (let m = 1; m <= 12; m++) {
+                  const d = auditorMonthData[a][m];
+                  if (d) {
+                    totalAssigned += d.count;
+                    const cls = d.status === 'E' ? 'cell-e' : d.status === 'P' ? 'cell-p' : d.status === 'EP' ? 'cell-ep' : '';
+                    cells.push(`<td class="${cls}" style="text-align:center;font-size:12px;">${d.status}${d.count > 1 ? ' (' + d.count + ')' : ''}</td>`);
+                  } else {
+                    cells.push('<td style="text-align:center;color:#CBD5E1;">—</td>');
+                  }
+                }
+                const areaCell = showArea
+                  ? `<td><span style="background:#E0F2FE;color:#0369A1;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:600;">${AUDITOR_AREA[a] || 'N/D'}</span></td>`
+                  : '';
+                return `<tr>
+                  <td style="text-align:left;font-weight:500;">${a}</td>
+                  ${areaCell}
+                  ${cells.join('')}
+                  <td style="font-weight:700;text-align:center;">${totalAssigned || '—'}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  });
+
+  container.innerHTML = html;
 }
 
 function renderDetails(data) {

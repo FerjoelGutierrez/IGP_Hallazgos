@@ -47,6 +47,9 @@
       <div class="menu-item" onclick="switchView('details', this)">
         <i class="fas fa-list"></i> Detalle Registros
       </div>
+      <div class="menu-item" onclick="switchView('assignment', this)">
+        <i class="fas fa-clipboard-list"></i> Asignación IGP
+      </div>
       <div class="menu-item" onclick="switchView('analysis', this)">
         <i class="fas fa-search-dollar"></i> Análisis Avanzado
       </div>
@@ -204,6 +207,17 @@
           <div class="card-header"><h3>Ranking de Auditores</h3></div>
           <div id="table-analysis-auditor" class="table-container"></div>
         </div>
+      </div>
+
+      <!-- VIEW: Asignación IGP -->
+      <div id="view-assignment" class="view-section">
+        <div class="card no-print">
+          <div class="card-header">
+            <h3><i class="fas fa-clipboard-list" style="color:var(--accent-color);margin-right:8px;"></i> Panel de Asignación IGP</h3>
+            <div style="font-size:12px; color:var(--text-secondary);">Vista consolidada de asignaciones por inspector, mes y planta</div>
+          </div>
+        </div>
+        <div id="assignment-container"></div>
       </div>
 
       <!-- VIEW: History -->

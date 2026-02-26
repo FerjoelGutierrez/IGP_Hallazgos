@@ -25,16 +25,36 @@ function getPlantFromAuditor(auditorName) {
 }
 
 // --- SUPABASE DATA OPERATIONS ---
+
+// Guardar registros NUEVOS en Supabase (ACUMULA, no reemplaza)
 async function saveRecordsToSupabase(records) {
   const sb = getSupabase();
   if (!sb) { console.warn('Supabase no configurado, usando localStorage'); return false; }
 
   try {
-    // Limpiar registros anteriores
-    await sb.from('igp_records').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    // Obtener claves existentes para evitar duplicados
+    const { data: existing } = await sb.from('igp_records').select('auditor_asignado, fecha_creacion, area, unidad');
+    const existingKeys = new Set();
+    if (existing) {
+      existing.forEach(r => {
+        const key = `${r.fecha_creacion || ''}_${r.auditor_asignado || ''}_${r.area || ''}_${r.unidad || ''}`;
+        existingKeys.add(key);
+      });
+    }
+
+    // Filtrar solo registros NUEVOS (que no existen ya)
+    const newRecords = records.filter(r => {
+      const key = `${r["Fecha de Creación"] || ''}_${r["Auditor Asignado"] || ''}_${r["Área"] || ''}_${r["Unidad"] || ''}`;
+      return !existingKeys.has(key);
+    });
+
+    if (newRecords.length === 0) {
+      console.log('ℹ️ No hay registros nuevos para guardar (todos ya existen)');
+      return true;
+    }
 
     // Preparar datos para insertar
-    const rows = records.map(r => ({
+    const rows = newRecords.map(r => ({
       unidad: r["Unidad"] || null,
       area: r["Área"] || null,
       auditor_asignado: r["Auditor Asignado"] || '',
@@ -43,8 +63,7 @@ async function saveRecordsToSupabase(records) {
       tipo_auditoria: r["Tipo de Auditoría"] || null,
       estado: r["Estado"] || 'Pendiente',
       observaciones: r["Observaciones"] || '',
-      planta: getPlantFromAuditor(r["Auditor Asignado"]),
-      raw_data: r
+      planta: getPlantFromAuditor(r["Auditor Asignado"])
     }));
 
     // Insertar en lotes de 500
@@ -53,7 +72,7 @@ async function saveRecordsToSupabase(records) {
       const { error } = await sb.from('igp_records').insert(batch);
       if (error) { console.error('Error insertando lote:', error); return false; }
     }
-    console.log(`✅ ${rows.length} registros guardados en Supabase`);
+    console.log(`✅ ${newRecords.length} registros NUEVOS guardados en Supabase (${records.length - newRecords.length} ya existían)`);
     return true;
   } catch (err) {
     console.error('Error guardando en Supabase:', err);
@@ -61,6 +80,7 @@ async function saveRecordsToSupabase(records) {
   }
 }
 
+// Cargar TODOS los registros desde Supabase
 async function loadRecordsFromSupabase() {
   const sb = getSupabase();
   if (!sb) return null;
@@ -89,6 +109,7 @@ async function loadRecordsFromSupabase() {
   }
 }
 
+// Actualizar un registro específico en Supabase
 async function updateRecordInSupabase(supabaseId, estado, observaciones) {
   const sb = getSupabase();
   if (!sb) return false;
@@ -107,6 +128,7 @@ async function updateRecordInSupabase(supabaseId, estado, observaciones) {
   }
 }
 
+// Borrar TODOS los registros de Supabase
 async function deleteAllRecordsFromSupabase() {
   const sb = getSupabase();
   if (!sb) return false;

@@ -14,8 +14,8 @@ function switchView(viewId, btnElement) {
   if (btnElement) btnElement.classList.add('active');
   const titles = {
     'dashboard': 'Dashboard General', 'plants': 'Reporte por Planta',
-    'details': 'Detalle de Registros', 'analysis': 'Análisis Avanzado',
-    'history': 'Histórico y Backups'
+    'details': 'Detalle de Registros', 'assignment': 'Asignación IGP',
+    'analysis': 'Análisis Avanzado', 'history': 'Histórico y Backups'
   };
   document.getElementById('page-title').textContent = titles[viewId];
 }
@@ -47,7 +47,7 @@ function handleFiles(files) {
       const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
       const savedEdits = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
 
-      rawData = json
+      const newRecords = json
         .filter(r => {
           const audName = r["Auditor Asignado"] || "";
           return !BLOCKED_AUDITORS_SET.has(audName.toLowerCase().trim());
@@ -67,16 +67,26 @@ function handleFiles(files) {
           };
         });
 
+      // Guardar en Supabase (acumula, no reemplaza)
+      const savedOk = await saveRecordsToSupabase(newRecords);
+      if (savedOk) {
+        console.log('✅ Datos sincronizados con Supabase');
+        // Recargar TODO desde Supabase para tener historial completo
+        const allData = await loadRecordsFromSupabase();
+        if (allData && allData.length > 0) {
+          rawData = allData;
+        } else {
+          rawData = newRecords;
+        }
+      } else {
+        rawData = newRecords;
+      }
+
       document.getElementById('welcome-screen').classList.add('hidden');
       setTimeout(() => document.getElementById('welcome-screen').style.display = 'none', 500);
 
       initDashboard();
       localStorage.setItem(STORAGE_DATA_KEY, JSON.stringify(rawData));
-
-      // Guardar en Supabase en segundo plano
-      saveRecordsToSupabase(rawData).then(ok => {
-        if (ok) console.log('✅ Datos sincronizados con Supabase');
-      });
     };
     reader.readAsArrayBuffer(files[0]);
   }
@@ -176,6 +186,7 @@ function updateDashboard() {
   renderMatrix(filteredData);
   renderDetails(filteredData);
   renderPlantReport(filteredData);
+  renderAssignment(filteredData);
   renderAnalysis(filteredData);
   generateDynamicAnalysis(filteredData);
 }
