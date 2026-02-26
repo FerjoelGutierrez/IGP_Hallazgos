@@ -92,39 +92,13 @@ function handleFiles(files) {
           };
         });
 
-      // Guardar en Supabase en segundo plano (acumula, no reemplaza)
+      // Guardar en Supabase en segundo plano
       saveRecordsToSupabase(newRecords).then(ok => {
-        if (ok) console.log('✅ Datos sincronizados con Supabase');
-        else console.warn('⚠️ No se pudo guardar en Supabase, datos guardados localmente');
+        if (ok) console.log('✅ Sincronizado con Supabase');
       });
 
-      // Usar los datos del Excel directamente (tienen TODOS los campos: Departamento, etc.)
-      // Merge con datos existentes para acumular historial
-      if (rawData.length > 0) {
-        newRecords.forEach(nr => {
-          const existIdx = rawData.findIndex(existing =>
-            existing["Auditor Asignado"] === nr["Auditor Asignado"] &&
-            existing["Fecha de Creación"] === nr["Fecha de Creación"] &&
-            existing["Tipo de Auditoría"] === nr["Tipo de Auditoría"]
-          );
-          if (existIdx >= 0) {
-            // Registro existe: actualizar Departamento si faltaba
-            if (nr["Departamento"] && !rawData[existIdx]["Departamento"]) {
-              rawData[existIdx]["Departamento"] = nr["Departamento"];
-            }
-            // Actualizar cualquier otro campo del Excel
-            Object.keys(nr).forEach(k => {
-              if (nr[k] && !rawData[existIdx][k]) {
-                rawData[existIdx][k] = nr[k];
-              }
-            });
-          } else {
-            rawData.push(nr);
-          }
-        });
-      } else {
-        rawData = newRecords;
-      }
+      // Usar datos del Excel directamente (tiene TODOS los campos: Departamento, etc.)
+      rawData = newRecords;
 
       document.getElementById('welcome-screen').classList.add('hidden');
       setTimeout(() => document.getElementById('welcome-screen').style.display = 'none', 500);
