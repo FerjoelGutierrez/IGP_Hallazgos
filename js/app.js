@@ -326,6 +326,28 @@ function sendEmail(selectedProgrammer) {
 
   let body = '';
 
+  // --- RESUMEN GENERAL (Solo si es "Todas las Plantas") ---
+  if (selectedProgrammer === 'all') {
+    const allAuditors = plants.flatMap(p => PLANT_GROUPS[p]);
+    const allData = rawData.filter(r => allAuditors.includes(r["Auditor Asignado"]));
+    const allIGPs = allData.filter(r => (r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
+    
+    const total = allIGPs.length;
+    const term = allIGPs.filter(r => (r["Estado"] || '').includes('Terminada')).length;
+    const exec = allIGPs.filter(r => (r["Estado"] || '').includes('En Ejecución')).length;
+    const pend = allIGPs.filter(r => (r["Estado"] || '').includes('Pendiente')).length;
+    const perc = total > 0 ? ((term / total) * 100).toFixed(1) : 0;
+
+    body += `📊 RESUMEN GENERAL DE GESTIÓN IGP - ${currentMonth.toUpperCase()} ${currentYear}\n`;
+    body += `--------------------------------------------------\n`;
+    body += `Total IGPs:        ${total}\n`;
+    body += `🔵 Terminadas:     ${term}\n`;
+    body += `🟡 En Ejecución:   ${exec}\n`;
+    body += `🔴 Pendientes:     ${pend}\n`;
+    body += `📈 Cumplimiento:   ${perc}%\n`;
+    body += `--------------------------------------------------\n\n`;
+  }
+
   plants.forEach(plant => {
     const auditors = PLANT_GROUPS[plant];
     const plantData = rawData.filter(r => auditors.includes(r["Auditor Asignado"]));
@@ -334,14 +356,10 @@ function sendEmail(selectedProgrammer) {
     const prog = PLANT_PROGRAMMER[plant] || 'N/D';
     const isAndres = (prog === 'Andrés Mena');
 
-    body += `Estimado ${prog},\n\n`;
-    body += `Recibe un cordial saludo.\n\n`;
-    body += `Por medio del presente, se adjunta el estado actual de las Inspecciones Generales Planeadas (IGP) correspondientes al mes de ${currentMonth.toLowerCase()}. Te recordamos la importancia de culminar las tareas asignadas dentro de los plazos establecidos.\n\n`;
+    body += `Estimados Inspectores - Planta ${plant},\n\n`;
+    body += `Reciban un cordial saludo.\n\n`;
+    body += `Por medio del presente, les adjunto el estado actual de las Inspecciones Generales Planeadas (IGP) correspondientes al mes de ${currentMonth.toLowerCase()}. Les recuerdo la importancia de culminar las tareas asignadas dentro de los plazos establecidos.\n\n`;
     
-    body += `Detalles del Programador:\n`;
-    body += `Planta: ${plant}\n`;
-    body += `Programador: ${prog}\n\n`;
-
     body += `Estado de Avance - ${currentMonth} ${currentYear}\n\n`;
 
     // --- SECCIÓN IGPs ---
@@ -378,9 +396,9 @@ function sendEmail(selectedProgrammer) {
 
     body += `Quedamos atentos a la actualización de los casos pendientes.\n\n`;
     body += `Atentamente,\n\n`;
-    body += `Fernando Joel Gutierrez Vistin\n`;
-    body += `SST Support - Vitapro S.A.\n\n`;
-    body += `${'='.repeat(30)}\n\n`;
+    body += `${prog}\n`;
+    body += `Coordinador SST - Vitapro S.A.\n\n`;
+    body += `${'='.repeat(35)}\n\n`;
   });
 
   const subject = `REPORTE DE GESTIÓN IGP – ${currentMonth.toUpperCase()} ${currentYear}`;
