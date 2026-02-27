@@ -347,17 +347,17 @@ function sendEmail(selectedProgrammer) {
     // --- SECCIÓN IGPs ---
     const igps = plantData.filter(r => (r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
     if (igps.length > 0) {
-      body += `INSPECTOR (AREA)\t\tESTADO\t\tTEMA IGP\t\tDEPARTAMENTO\n`;
-      body += `--------------------------------------------------------------------------------\n`;
+      body += `INSPECTOR (AREA)\t\t\tESTADO\n`;
+      body += `--------------------------------------------------\n\n`;
       igps.forEach(r => {
         let name = r["Auditor Asignado"] || '';
         if (isAndres && AUDITOR_AREA[name]) name += ` (${AUDITOR_AREA[name]})`;
         
-        const tema = r["Tipo de Auditoría"] || '';
-        const depto = r["Departamento"] || r["Área"] || '';
-        const estado = r["Estado"] || '';
+        const est = (r["Estado"] || '').toUpperCase();
+        const icon = est.includes('TERM') ? '🟢' : '🔴';
         
-        body += `${name}\t\t${estado.toUpperCase()}\t\t${tema}\t\t${depto}\n`;
+        // Interlineado 1.5 (doble salto de línea)
+        body += `**${name.padEnd(25)}**\t\t${icon} ${est}\n\n`;
       });
       body += '\n';
     }
@@ -365,17 +365,17 @@ function sendEmail(selectedProgrammer) {
     // --- SECCIÓN HALLAZGOS ---
     const hallazgos = plantData.filter(r => !(r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
     if (hallazgos.length > 0) {
-      body += `TABLA DE HALLAZGOS\n`;
-      body += `INSPECTOR (AREA)\t\tESTADO\t\tTIPO\n`;
-      body += `--------------------------------------------------------------------------------\n`;
+      body += `🔍 TABLA DE HALLAZGOS\n`;
+      body += `INSPECTOR (AREA)\t\t\tESTADO\n`;
+      body += `--------------------------------------------------\n\n`;
       hallazgos.forEach(r => {
         let name = r["Auditor Asignado"] || '';
         if (isAndres && AUDITOR_AREA[name]) name += ` (${AUDITOR_AREA[name]})`;
         
-        const tipo = r["Tipo de Auditoría"] || '';
-        const estado = r["Estado"] || '';
+        const est = (r["Estado"] || '').toUpperCase();
+        const icon = est.includes('TERM') ? '🟢' : '🔴';
         
-        body += `${name}\t\t${estado.toUpperCase()}\t\t${tipo}\n`;
+        body += `**${name.padEnd(25)}**\t\t${icon} ${est}\n\n`;
       });
       body += '\n';
     }
