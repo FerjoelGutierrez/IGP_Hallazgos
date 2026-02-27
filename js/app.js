@@ -319,41 +319,52 @@ function sendEmail(selectedProgrammer) {
     ? Object.keys(PLANT_GROUPS)
     : Object.keys(PLANT_PROGRAMMER).filter(p => PLANT_PROGRAMMER[p] === selectedProgrammer);
 
-  let body = selectedProgrammer === 'all'
-    ? 'REPORTE IGP - TODAS LAS PLANTAS\n\n'
-    : `REPORTE IGP - ${selectedProgrammer.toUpperCase()}\n\n`;
+  let body = '';
 
   plants.forEach(plant => {
     const auditors = PLANT_GROUPS[plant];
     const plantData = rawData.filter(r => auditors.includes(r["Auditor Asignado"]));
     if (plantData.length === 0) return;
 
-    body += `━━━━━━━━━━━━━━━━━━━━━━\n`;
-    body += `📋 ${plant} - Programador: ${PLANT_PROGRAMMER[plant]}\n`;
-    body += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    const prog = PLANT_PROGRAMMER[plant] || 'N/D';
+    body += `PLANTA: ${plant}\n`;
+    body += `PROGRAMADOR: ${prog}\n`;
+    body += `${'═'.repeat(50)}\n\n`;
 
-    auditors.forEach(a => {
-      const recs = plantData.filter(r => r["Auditor Asignado"] === a);
-      if (recs.length === 0) return;
-
-      const igps = recs.filter(r => (r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
-      const hallazgos = recs.filter(r => !(r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
-
-      body += `👤 ${a}\n`;
-      if (igps.length > 0) {
-        body += `   IGP (${igps.length}):\n`;
-        igps.forEach(r => {
-          body += `   • ${r["Tipo de Auditoría"]} | ${r["Departamento"] || r["Área"] || ''} | Estado: ${r["Estado"]}\n`;
-        });
-      }
-      if (hallazgos.length > 0) {
-        body += `   Hallazgos (${hallazgos.length}):\n`;
-        hallazgos.forEach(r => {
-          body += `   • ${r["Tipo de Auditoría"]} | Estado: ${r["Estado"]}\n`;
-        });
-      }
+    // Tabla IGP
+    const allIGPs = plantData.filter(r => (r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
+    if (allIGPs.length > 0) {
+      body += `📋 TABLA IGP (${allIGPs.length})\n`;
+      body += `${'─'.repeat(50)}\n`;
+      body += `Inspector | IGP | Departamento | Estado\n`;
+      body += `${'─'.repeat(50)}\n`;
+      allIGPs.forEach(r => {
+        const insp = r["Auditor Asignado"] || '';
+        const tipo = r["Tipo de Auditoría"] || '';
+        const depto = r["Departamento"] || r["Área"] || '';
+        const estado = r["Estado"] || '';
+        body += `${insp} | ${tipo} | ${depto} | ${estado}\n`;
+      });
       body += '\n';
-    });
+    }
+
+    // Tabla Hallazgos
+    const allHallazgos = plantData.filter(r => !(r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
+    if (allHallazgos.length > 0) {
+      body += `🔍 TABLA HALLAZGOS (${allHallazgos.length})\n`;
+      body += `${'─'.repeat(50)}\n`;
+      body += `Inspector | Tipo | Estado\n`;
+      body += `${'─'.repeat(50)}\n`;
+      allHallazgos.forEach(r => {
+        const insp = r["Auditor Asignado"] || '';
+        const tipo = r["Tipo de Auditoría"] || '';
+        const estado = r["Estado"] || '';
+        body += `${insp} | ${tipo} | ${estado}\n`;
+      });
+      body += '\n';
+    }
+
+    body += '\n';
   });
 
   const subject = selectedProgrammer === 'all'

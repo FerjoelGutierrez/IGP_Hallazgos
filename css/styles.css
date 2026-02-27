@@ -360,90 +360,81 @@ td.cell-ep { background: #FEF3C7; color: #92400E; font-weight: 600; }
   transform: translateY(0);
 }
 
-/* --- Assignment Spreadsheet (Professional Excel-like) --- */
+/* --- Assignment Table (Clean & Professional) --- */
 .assign-table {
-  border-collapse: separate;
-  border-spacing: 0;
+  border-collapse: collapse;
   width: 100%;
+  font-size: 12px;
 }
 
 .assign-table thead th {
-  background: linear-gradient(135deg, #0056b3, #003d82) !important;
+  background: #3B7DD8;
   color: white;
   font-size: 11px;
   font-weight: 600;
-  padding: 10px 8px !important;
+  padding: 10px 8px;
   text-align: center;
-  border-bottom: 2px solid #003366;
-  letter-spacing: 0.3px;
+  border: 1px solid #2E6BC4;
   white-space: nowrap;
 }
 
-.assign-td {
-  padding: 6px 4px !important;
+.assign-table tbody td {
+  padding: 8px 6px;
+  border: 1px solid #E5E7EB;
   vertical-align: top;
-  min-width: 160px;
-  border-bottom: 1px solid #E8EDF2;
+}
+
+.assign-table tbody tr:nth-child(odd) {
+  background: #FFFFFF;
+}
+
+.assign-table tbody tr:nth-child(even) {
+  background: #F7F8FA;
+}
+
+.assign-table tbody tr:hover {
+  background: #EDF2F7 !important;
+}
+
+.assign-td {
+  padding: 4px !important;
+  vertical-align: top;
+  min-width: 150px;
 }
 
 .assign-cell {
   width: 100%;
-  min-height: 32px;
-  padding: 8px 10px;
-  border: 1px solid #E2E8F0;
-  border-radius: 6px;
+  min-height: 28px;
+  padding: 6px 8px;
+  border: 1px solid #D1D5DB;
+  border-radius: 4px;
   font-size: 12px;
   font-family: 'Inter', sans-serif;
-  background: #FAFBFC;
-  color: var(--text-main);
+  background: white;
+  color: #1F2937;
   line-height: 1.5;
   word-break: break-word;
   white-space: pre-wrap;
-  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
   cursor: text;
 }
 
 .assign-cell:hover {
-  border-color: #94B8DB;
-  background: #F0F6FF;
+  border-color: #93C5FD;
 }
 
 .assign-cell:focus {
-  border-color: var(--accent-color);
-  background: white;
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.12);
+  border-color: #3B82F6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
   outline: none;
 }
 
 .assign-cell:empty::before {
   content: attr(data-placeholder);
-  color: #B0C4D8;
+  color: #9CA3AF;
   font-style: italic;
   font-size: 11px;
   pointer-events: none;
-}
-
-.assign-table td {
-  padding: 6px 4px !important;
-  vertical-align: top;
-  border-bottom: 1px solid #F0F3F7;
-}
-
-.assign-table tbody tr {
-  transition: background 0.15s;
-}
-
-.assign-table tbody tr:nth-child(even) {
-  background: #F8FAFC;
-}
-
-.assign-table tbody tr:hover {
-  background: #EBF5FF !important;
-}
-
-.assign-table tbody td:first-child {
-  font-size: 12px;
-  padding: 10px 8px !important;
 }
 
 /* --- Hamburger Button (hidden on desktop) --- */

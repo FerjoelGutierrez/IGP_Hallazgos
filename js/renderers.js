@@ -342,36 +342,32 @@ async function renderAssignment() {
 
     html += `
       <div class="card" style="margin-bottom:20px;">
-        <div class="card-header" style="margin-bottom:12px; padding-bottom:10px; border-bottom:2px solid #E8EDF2;">
+        <div class="card-header" style="margin-bottom:10px; padding-bottom:8px;">
           <div>
-            <h3 style="font-size:15px; display:flex; align-items:center; gap:8px;">
-              <i class="fas fa-industry" style="color:var(--accent-color);"></i>${plant}
-            </h3>
-            <div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">
-              <i class="fas fa-user-tie" style="margin-right:4px;"></i>Programador: <b>${programmersName}</b>
-            </div>
+            <h3 style="font-size:14px;"><i class="fas fa-industry" style="color:#3B7DD8;margin-right:6px;"></i>${plant}</h3>
+            <div style="font-size:12px; color:#6B7280; margin-top:2px;">Programador: <b>${programmersName}</b></div>
           </div>
         </div>
-        <div class="table-container" style="overflow-x:auto; border-radius:8px; border:1px solid #E2E8F0;">
+        <div class="table-container" style="overflow-x:auto;">
           <table class="assign-table">
             <thead>
               <tr>
-                <th style="text-align:left; min-width:160px; position:sticky; left:0; z-index:2;">Inspectores</th>
+                <th style="text-align:left; min-width:160px; position:sticky; left:0; z-index:2; background:#3B7DD8;">Inspectores</th>
                 ${showArea ? '<th style="min-width:80px;">Área</th>' : ''}
                 <th style="min-width:80px;">Prog.</th>`;
 
     for (let m = 1; m <= 12; m++) {
-      html += `<th colspan="2" style="min-width:280px; text-align:center; border-left:2px solid rgba(255,255,255,0.2);">${MONTH_NAMES[m]}</th>`;
+      html += `<th colspan="2" style="min-width:260px; text-align:center;">${MONTH_NAMES[m]}</th>`;
     }
 
     html += `</tr><tr>
-                <th style="position:sticky; left:0; z-index:2; font-size:9px; padding:6px !important;"></th>
-                ${showArea ? '<th style="font-size:9px; padding:6px !important;"></th>' : ''}
-                <th style="font-size:9px; padding:6px !important;"></th>`;
+                <th style="position:sticky; left:0; z-index:2; background:#3B7DD8; font-size:9px;"></th>
+                ${showArea ? '<th style="font-size:9px;"></th>' : ''}
+                <th style="font-size:9px;"></th>`;
 
     for (let m = 1; m <= 12; m++) {
-      html += `<th style="font-size:10px; border-left:2px solid rgba(255,255,255,0.2); padding:6px !important; font-weight:500;">IGP</th>
-               <th style="font-size:10px; padding:6px !important; font-weight:500;">Depto</th>`;
+      html += `<th style="font-size:10px;">IGP</th>
+               <th style="font-size:10px;">Depto</th>`;
     }
 
     html += `</tr></thead><tbody>`;
@@ -379,9 +375,9 @@ async function renderAssignment() {
     auditors.forEach(a => {
       const safeName = a.replace(/'/g, "\\'");
       html += `<tr>
-        <td style="text-align:left; font-weight:600; font-size:12px; position:sticky; left:0; background:inherit; z-index:1; border-right:2px solid #E2E8F0; white-space:nowrap; padding:10px 12px !important;">${a}</td>
-        ${showArea ? `<td style="text-align:center; padding:8px !important;"><span style="background:#E0F2FE;color:#0369A1;padding:4px 10px;border-radius:12px;font-size:10px;font-weight:600;">${AUDITOR_AREA[a] || ''}</span></td>` : ''}
-        <td style="text-align:center; font-size:11px; color:var(--text-secondary); padding:8px !important;">${programmersName}</td>`;
+        <td style="text-align:left; font-weight:600; font-size:12px; position:sticky; left:0; background:inherit; z-index:1; white-space:nowrap;">${a}</td>
+        ${showArea ? `<td style="text-align:center;"><span style="background:#DBEAFE;color:#1D4ED8;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:600;">${AUDITOR_AREA[a] || ''}</span></td>` : ''}
+        <td style="text-align:center; font-size:11px; color:#6B7280;">${programmersName}</td>`;
 
       for (let m = 1; m <= 12; m++) {
         const key = `${a}_${m}`;
@@ -389,15 +385,15 @@ async function renderAssignment() {
         const temaId = `tema_${plant.replace(/\s/g, '')}_${a.replace(/\s/g, '_')}_${m}`;
         const deptoId = `depto_${plant.replace(/\s/g, '')}_${a.replace(/\s/g, '_')}_${m}`;
 
-        html += `<td class="assign-td" style="border-left:2px solid #E8EDF2;">
+        html += `<td class="assign-td">
                   <div class="assign-cell" contenteditable="true" id="${temaId}"
-                    data-placeholder="Escribir IGP..."
+                    data-placeholder="..."
                     onblur="onAssignCellBlur('${safeName}', ${m})"
                     data-inspector="${a}" data-mes="${m}" data-field="tema">${escapeHtml(d.igp_tema).replace(/\n/g, '<br>')}</div>
                 </td>
                 <td class="assign-td">
                   <div class="assign-cell" contenteditable="true" id="${deptoId}"
-                    data-placeholder="Departamento..."
+                    data-placeholder="..."
                     onblur="onAssignCellBlur('${safeName}', ${m})"
                     data-inspector="${a}" data-mes="${m}" data-field="depto">${escapeHtml(d.igp_depto).replace(/\n/g, '<br>')}</div>
                 </td>`;
