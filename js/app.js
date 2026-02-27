@@ -366,9 +366,10 @@ function sendEmail(selectedProgrammer) {
     body += `--------------------------------------------------\n\n`;
   }
 
-  body += `Estimados Inspectores - Planta 1, Planta 2, y Exteriores,\n\n`;
+  const plantNamesStr = plants.join(', ').replace(/, ([^,]*)$/, ' y $1');
+  body += `Estimados Inspectores - ${plantNamesStr},\n\n`;
   body += `Reciban un cordial saludo.\n\n`;
-  body += `Por medio del presente, les adjunto el estado actual de las Inspecciones Generales Planeadas (IGP) correspondientes al mes de ${currentMonth.toLowerCase()}. Les recuerdo la importancia de culminar las tareas asignadas dentro de los plazos establecidos.\n\n`;
+  body += `Por medio del presente, les adjunto el estado actual de las Inspecciones Generales Planeadas (IGP) dinámicas correspondientes al mes de ${currentMonth.toLowerCase()}. Les recuerdo la importancia de culminar las tareas asignadas dentro de los plazos establecidos.\n\n`;
 
   plants.forEach(plant => {
     const auditors = PLANT_GROUPS[plant];
@@ -422,7 +423,9 @@ function sendEmail(selectedProgrammer) {
   body += `Atentamente,\n\n`;
   body += `Seguridad Industrial Vitapro S.A.\n`;
 
-  const subject = `REPORTE DE GESTIÓN IGP & HALLAZGOS – ${currentMonth.toUpperCase()} ${currentYear}`;
+  const subject = selectedProgrammer === 'all' 
+    ? `REPORTE DE GESTIÓN IGP & HALLAZGOS – ${currentMonth.toUpperCase()} ${currentYear}`
+    : `REPORTE DE GESTIÓN - ${plantNamesStr.toUpperCase()} - ${currentMonth.toUpperCase()} ${currentYear}`;
 
   window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
