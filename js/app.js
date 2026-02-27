@@ -334,23 +334,36 @@ function sendEmail(selectedProgrammer) {
     const allIGPs = allData.filter(r => (r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
     const allHallazgos = allData.filter(r => !(r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
     
-    const total = allIGPs.length;
-    const term = allIGPs.filter(r => (r["Estado"] || '').includes('Terminada')).length;
-    const exec = allIGPs.filter(r => (r["Estado"] || '').includes('En Ejecución')).length;
-    const pend = allIGPs.filter(r => (r["Estado"] || '').includes('Pendiente')).length;
-    const perc = total > 0 ? ((term / total) * 100).toFixed(1) : 0;
-    const totalHallazgos = allHallazgos.length;
+    // Stats IGPs
+    const totI = allIGPs.length;
+    const terI = allIGPs.filter(r => (r["Estado"] || '').includes('Terminada')).length;
+    const exeI = allIGPs.filter(r => (r["Estado"] || '').includes('En Ejecución')).length;
+    const penI = allIGPs.filter(r => (r["Estado"] || '').includes('Pendiente')).length;
+    const perI = totI > 0 ? ((terI / totI) * 100).toFixed(1) : 0;
 
-    body += `📊 RESUMEN GENERAL DE GESTIÓN IGP - ${currentMonth.toUpperCase()} ${currentYear}\n`;
-    body += `------------------------------------------------------------\n`;
-    body += `RESUMEN IGPs                      |  HALLAZGOS\n`;
-    body += `----------------------------------|-------------------------\n`;
-    body += `Total IGPs:      ${total.toString().padEnd(7)}          |  Total Hallazgos: ${totalHallazgos}\n`;
-    body += `🔵 Terminadas:   ${term.toString().padEnd(7)}          |\n`;
-    body += `🟡 En Ejecución: ${exec.toString().padEnd(7)}          |\n`;
-    body += `🔴 Pendientes:   ${pend.toString().padEnd(7)}          |\n`;
-    body += `📈 Cumplimiento: ${perc}%`.padEnd(34) + `|\n`;
-    body += `------------------------------------------------------------\n\n`;
+    // Stats Hallazgos
+    const totH = allHallazgos.length;
+    const terH = allHallazgos.filter(r => (r["Estado"] || '').includes('Terminada')).length;
+    const exeH = allHallazgos.filter(r => (r["Estado"] || '').includes('En Ejecución')).length;
+    const penH = allHallazgos.filter(r => (r["Estado"] || '').includes('Pendiente')).length;
+    const perH = totH > 0 ? ((terH / totH) * 100).toFixed(1) : 0;
+
+    body += `📊 RESUMEN GENERAL DE GESTIÓN - ${currentMonth.toUpperCase()} ${currentYear}\n`;
+    body += `--------------------------------------------------\n`;
+    body += `🔹 RESUMEN DE IGPs\n`;
+    body += `Total IGPs:      ${totI}\n`;
+    body += `🔵 Terminadas:   ${terI}\n`;
+    body += `🟡 En Ejecución: ${exeI}\n`;
+    body += `🔴 Pendientes:   ${penI}\n`;
+    body += `📈 Cumplimiento: ${perI}%\n`;
+    body += `--------------------------------------------------\n`;
+    body += `🔸 RESUMEN DE HALLAZGOS\n`;
+    body += `Total Hallazgos: ${totH}\n`;
+    body += `🔵 Terminadas:   ${terH}\n`;
+    body += `🟡 En Ejecución: ${exeH}\n`;
+    body += `🔴 Pendientes:   ${penH}\n`;
+    body += `📈 Cumplimiento: ${perH}%\n`;
+    body += `--------------------------------------------------\n\n`;
   }
 
   body += `Estimados Inspectores - Planta 1, Planta 2, y Exteriores,\n\n`;
