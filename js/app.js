@@ -319,7 +319,16 @@ function sendEmail(selectedProgrammer) {
     ? Object.keys(PLANT_GROUPS)
     : Object.keys(PLANT_PROGRAMMER).filter(p => PLANT_PROGRAMMER[p] === selectedProgrammer);
 
+  const now = new Date();
+  const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+  const currentMonth = monthNames[now.getMonth()];
+  const currentYear = now.getFullYear();
+
   let body = '';
+  if (selectedProgrammer !== 'all') {
+    body += `REPORTE DE GESTIÓN - ${selectedProgrammer.toUpperCase()}\n`;
+  }
+  body += `Por favor culminar las IGP asignadas con tiempo. Este es un recordatorio de gestión académica.\n\n`;
 
   plants.forEach(plant => {
     const auditors = PLANT_GROUPS[plant];
@@ -327,49 +336,59 @@ function sendEmail(selectedProgrammer) {
     if (plantData.length === 0) return;
 
     const prog = PLANT_PROGRAMMER[plant] || 'N/D';
-    body += `PLANTA: ${plant}\n`;
-    body += `PROGRAMADOR: ${prog}\n`;
-    body += `${'═'.repeat(50)}\n\n`;
+    const isAndres = (prog === 'Andrés Mena');
 
-    // Tabla IGP
-    const allIGPs = plantData.filter(r => (r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
-    if (allIGPs.length > 0) {
-      body += `📋 TABLA IGP (${allIGPs.length})\n`;
-      body += `${'─'.repeat(50)}\n`;
-      body += `Inspector | IGP | Departamento | Estado\n`;
-      body += `${'─'.repeat(50)}\n`;
-      allIGPs.forEach(r => {
-        const insp = r["Auditor Asignado"] || '';
-        const tipo = r["Tipo de Auditoría"] || '';
-        const depto = r["Departamento"] || r["Área"] || '';
-        const estado = r["Estado"] || '';
-        body += `${insp} | ${tipo} | ${depto} | ${estado}\n`;
+    body += `╔══════════════════════════════════════════════════╗\n`;
+    body += `║ PLANTA: ${plant.padEnd(41)}║\n`;
+    body += `║ PROGRAMADOR: ${prog.padEnd(36)}║\n`;
+    body += `╚══════════════════════════════════════════════════╝\n\n`;
+
+    // --- TABLA IGPs ---
+    const igps = plantData.filter(r => (r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
+    if (igps.length > 0) {
+      body += `📋 IGPs - AVANCE DE ${currentMonth.toUpperCase()} ${currentYear}\n`;
+      body += `┌──────────────────────┬──────────────────────────────┬──────────────────────┬──────────┐\n`;
+      body += `│ INSPECTOR            │ TEMA IGP                     │ DEPARTAMENTO         │ ESTADO   │\n`;
+      body += `├──────────────────────┼──────────────────────────────┼──────────────────────┼──────────┤\n`;
+      
+      igps.forEach(r => {
+        let name = r["Auditor Asignado"] || '';
+        if (isAndres && AUDITOR_AREA[name]) name += ` (${AUDITOR_AREA[name]})`;
+        
+        const tema = (r["Tipo de Auditoría"] || '').substring(0, 28);
+        const depto = (r["Departamento"] || r["Área"] || '').substring(0, 18);
+        const estado = (r["Estado"] || '').substring(0, 8);
+        
+        body += `│ ${name.padEnd(20)} │ ${tema.padEnd(28)} │ ${depto.padEnd(20)} │ ${estado.padEnd(8)} │\n`;
       });
-      body += '\n';
+      body += `└──────────────────────┴──────────────────────────────┴──────────────────────┴──────────┘\n\n`;
     }
 
-    // Tabla Hallazgos
-    const allHallazgos = plantData.filter(r => !(r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
-    if (allHallazgos.length > 0) {
-      body += `🔍 TABLA HALLAZGOS (${allHallazgos.length})\n`;
-      body += `${'─'.repeat(50)}\n`;
-      body += `Inspector | Tipo | Estado\n`;
-      body += `${'─'.repeat(50)}\n`;
-      allHallazgos.forEach(r => {
-        const insp = r["Auditor Asignado"] || '';
-        const tipo = r["Tipo de Auditoría"] || '';
-        const estado = r["Estado"] || '';
-        body += `${insp} | ${tipo} | ${estado}\n`;
+    // --- TABLA HALLAZGOS ---
+    const hallazgos = plantData.filter(r => !(r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
+    if (hallazgos.length > 0) {
+      body += `🔍 TABLA DE HALLAZGOS\n`;
+      body += `┌──────────────────────┬──────────────────────────────┬──────────┐\n`;
+      body += `│ INSPECTOR            │ TIPO                         │ ESTADO   │\n`;
+      body += `├──────────────────────┼──────────────────────────────┼──────────┤\n`;
+      
+      hallazgos.forEach(r => {
+        let name = r["Auditor Asignado"] || '';
+        if (isAndres && AUDITOR_AREA[name]) name += ` (${AUDITOR_AREA[name]})`;
+        
+        const tipo = (r["Tipo de Auditoría"] || '').substring(0, 28);
+        const estado = (r["Estado"] || '').substring(0, 8);
+        
+        body += `│ ${name.padEnd(20)} │ ${tipo.padEnd(28)} │ ${estado.padEnd(8)} │\n`;
       });
-      body += '\n';
+      body += `└──────────────────────┴──────────────────────────────┴──────────┘\n\n`;
     }
-
-    body += '\n';
+    body += `\n`;
   });
 
   const subject = selectedProgrammer === 'all'
-    ? 'Reporte IGP - Todas las Plantas'
-    : `Reporte IGP - ${selectedProgrammer}`;
+    ? `Reporte IGP - Todas las Plantas - ${currentMonth}`
+    : `Reporte IGP - ${selectedProgrammer} - ${currentMonth}`;
 
   window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
