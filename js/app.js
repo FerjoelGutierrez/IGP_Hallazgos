@@ -19,6 +19,13 @@ function switchView(viewId, btnElement) {
   };
   document.getElementById('page-title').textContent = titles[viewId];
 
+  // Ocultar filtros en vistas que no los necesitan
+  const filtersCard = document.getElementById('global-filters-card');
+  if (filtersCard) {
+    const hideFilters = (viewId === 'assignment' || viewId === 'history');
+    filtersCard.style.display = hideFilters ? 'none' : '';
+  }
+
   // Auto-close sidebar on mobile
   if (window.innerWidth <= 768) {
     closeSidebar();

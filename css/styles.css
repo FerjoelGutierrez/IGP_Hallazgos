@@ -360,24 +360,43 @@ td.cell-ep { background: #FEF3C7; color: #92400E; font-weight: 600; }
   transform: translateY(0);
 }
 
-/* --- Assignment Spreadsheet Cells (contenteditable) --- */
+/* --- Assignment Spreadsheet (Professional Excel-like) --- */
+.assign-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+}
+
+.assign-table thead th {
+  background: linear-gradient(135deg, #0056b3, #003d82) !important;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 10px 8px !important;
+  text-align: center;
+  border-bottom: 2px solid #003366;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
 .assign-td {
-  padding: 1px !important;
+  padding: 6px 4px !important;
   vertical-align: top;
-  min-width: 140px;
+  min-width: 160px;
+  border-bottom: 1px solid #E8EDF2;
 }
 
 .assign-cell {
   width: 100%;
-  min-height: 22px;
-  padding: 4px 6px;
-  border: 1px solid transparent;
-  border-radius: 3px;
-  font-size: 11px;
+  min-height: 32px;
+  padding: 8px 10px;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+  font-size: 12px;
   font-family: 'Inter', sans-serif;
-  background: transparent;
+  background: #FAFBFC;
   color: var(--text-main);
-  line-height: 1.4;
+  line-height: 1.5;
   word-break: break-word;
   white-space: pre-wrap;
   transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
@@ -385,32 +404,46 @@ td.cell-ep { background: #FEF3C7; color: #92400E; font-weight: 600; }
 }
 
 .assign-cell:hover {
-  border-color: #CBD5E1;
-  background: #F8FAFC;
+  border-color: #94B8DB;
+  background: #F0F6FF;
 }
 
 .assign-cell:focus {
   border-color: var(--accent-color);
   background: white;
-  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.15);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.12);
   outline: none;
 }
 
 .assign-cell:empty::before {
   content: attr(data-placeholder);
-  color: #CBD5E1;
+  color: #B0C4D8;
   font-style: italic;
-  font-size: 10px;
+  font-size: 11px;
   pointer-events: none;
 }
 
 .assign-table td {
-  padding: 2px !important;
+  padding: 6px 4px !important;
   vertical-align: top;
+  border-bottom: 1px solid #F0F3F7;
+}
+
+.assign-table tbody tr {
+  transition: background 0.15s;
+}
+
+.assign-table tbody tr:nth-child(even) {
+  background: #F8FAFC;
 }
 
 .assign-table tbody tr:hover {
-  background: #F0F9FF !important;
+  background: #EBF5FF !important;
+}
+
+.assign-table tbody td:first-child {
+  font-size: 12px;
+  padding: 10px 8px !important;
 }
 
 /* --- Hamburger Button (hidden on desktop) --- */

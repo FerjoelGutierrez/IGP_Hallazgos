@@ -317,17 +317,20 @@ async function renderAssignment() {
 
   // 4. Renderizar tabla
   let html = `
-    <div class="card" style="margin-bottom:12px;">
-      <div style="display:flex; align-items:center; gap:12px; padding:4px 0; flex-wrap:wrap;">
-        <label style="font-weight:600; font-size:13px;">Año:</label>
-        <select id="assign-year-select" onchange="changeAssignYear(this.value)"
-          style="padding:6px 14px; border:1px solid var(--border-color); border-radius:var(--radius-sm); font-size:13px; font-weight:600;">
-          <option value="2024" ${currentAssignYear === 2024 ? 'selected' : ''}>2024</option>
-          <option value="2025" ${currentAssignYear === 2025 ? 'selected' : ''}>2025</option>
-          <option value="2026" ${currentAssignYear === 2026 ? 'selected' : ''}>2026</option>
-        </select>
-        <span style="font-size:11px; color:var(--text-secondary);">
-          <i class="fas fa-info-circle"></i> Solo muestra IGP (no hallazgos). Celdas editables, se guardan al salir.
+    <div class="card" style="margin-bottom:16px; padding:16px 20px;">
+      <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <i class="fas fa-calendar-alt" style="color:var(--accent-color);"></i>
+          <label style="font-weight:600; font-size:14px;">Año:</label>
+          <select id="assign-year-select" onchange="changeAssignYear(this.value)"
+            style="padding:8px 18px; border:2px solid var(--border-color); border-radius:8px; font-size:14px; font-weight:700; cursor:pointer;">
+            <option value="2024" ${currentAssignYear === 2024 ? 'selected' : ''}>2024</option>
+            <option value="2025" ${currentAssignYear === 2025 ? 'selected' : ''}>2025</option>
+            <option value="2026" ${currentAssignYear === 2026 ? 'selected' : ''}>2026</option>
+          </select>
+        </div>
+        <span style="font-size:12px; color:var(--text-secondary); background:#F0F9FF; padding:6px 12px; border-radius:20px;">
+          <i class="fas fa-info-circle" style="color:var(--accent-color);"></i> Solo IGP · Celdas editables · Auto-guardado
         </span>
       </div>
     </div>`;
@@ -338,33 +341,37 @@ async function renderAssignment() {
     const showArea = (plant === "Planta Exteriores");
 
     html += `
-      <div class="card">
-        <div class="card-header" style="margin-bottom:8px; padding-bottom:6px;">
+      <div class="card" style="margin-bottom:20px;">
+        <div class="card-header" style="margin-bottom:12px; padding-bottom:10px; border-bottom:2px solid #E8EDF2;">
           <div>
-            <h3 style="font-size:14px;"><i class="fas fa-industry" style="color:var(--accent-color);margin-right:6px;"></i>${plant}</h3>
-            <div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">Programador: <b>${programmersName}</b></div>
+            <h3 style="font-size:15px; display:flex; align-items:center; gap:8px;">
+              <i class="fas fa-industry" style="color:var(--accent-color);"></i>${plant}
+            </h3>
+            <div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">
+              <i class="fas fa-user-tie" style="margin-right:4px;"></i>Programador: <b>${programmersName}</b>
+            </div>
           </div>
         </div>
-        <div class="table-container" style="overflow-x:auto;">
+        <div class="table-container" style="overflow-x:auto; border-radius:8px; border:1px solid #E2E8F0;">
           <table class="assign-table">
             <thead>
               <tr>
-                <th style="text-align:left; min-width:140px; position:sticky; left:0; z-index:2; background:#0056b3;">Inspectores</th>
-                ${showArea ? '<th style="min-width:70px;">Área</th>' : ''}
-                <th style="min-width:70px;">Prog.</th>`;
+                <th style="text-align:left; min-width:160px; position:sticky; left:0; z-index:2;">Inspectores</th>
+                ${showArea ? '<th style="min-width:80px;">Área</th>' : ''}
+                <th style="min-width:80px;">Prog.</th>`;
 
     for (let m = 1; m <= 12; m++) {
-      html += `<th colspan="2" style="min-width:250px; text-align:center; border-left:2px solid #003d82;">${MONTH_NAMES[m]}</th>`;
+      html += `<th colspan="2" style="min-width:280px; text-align:center; border-left:2px solid rgba(255,255,255,0.2);">${MONTH_NAMES[m]}</th>`;
     }
 
     html += `</tr><tr>
-                <th style="position:sticky; left:0; z-index:2; background:#0056b3;"></th>
-                ${showArea ? '<th></th>' : ''}
-                <th></th>`;
+                <th style="position:sticky; left:0; z-index:2; font-size:9px; padding:6px !important;"></th>
+                ${showArea ? '<th style="font-size:9px; padding:6px !important;"></th>' : ''}
+                <th style="font-size:9px; padding:6px !important;"></th>`;
 
     for (let m = 1; m <= 12; m++) {
-      html += `<th style="font-size:9px; border-left:2px solid #003d82;">IGP</th>
-               <th style="font-size:9px;">Depto</th>`;
+      html += `<th style="font-size:10px; border-left:2px solid rgba(255,255,255,0.2); padding:6px !important; font-weight:500;">IGP</th>
+               <th style="font-size:10px; padding:6px !important; font-weight:500;">Depto</th>`;
     }
 
     html += `</tr></thead><tbody>`;
@@ -372,9 +379,9 @@ async function renderAssignment() {
     auditors.forEach(a => {
       const safeName = a.replace(/'/g, "\\'");
       html += `<tr>
-        <td style="text-align:left; font-weight:500; font-size:11px; position:sticky; left:0; background:white; z-index:1; border-right:1px solid var(--border-color); white-space:nowrap;">${a}</td>
-        ${showArea ? `<td style="text-align:center;"><span style="background:#E0F2FE;color:#0369A1;padding:2px 6px;border-radius:8px;font-size:9px;font-weight:600;">${AUDITOR_AREA[a] || ''}</span></td>` : ''}
-        <td style="text-align:center; font-size:10px; color:var(--text-secondary);">${programmersName}</td>`;
+        <td style="text-align:left; font-weight:600; font-size:12px; position:sticky; left:0; background:inherit; z-index:1; border-right:2px solid #E2E8F0; white-space:nowrap; padding:10px 12px !important;">${a}</td>
+        ${showArea ? `<td style="text-align:center; padding:8px !important;"><span style="background:#E0F2FE;color:#0369A1;padding:4px 10px;border-radius:12px;font-size:10px;font-weight:600;">${AUDITOR_AREA[a] || ''}</span></td>` : ''}
+        <td style="text-align:center; font-size:11px; color:var(--text-secondary); padding:8px !important;">${programmersName}</td>`;
 
       for (let m = 1; m <= 12; m++) {
         const key = `${a}_${m}`;
@@ -382,15 +389,15 @@ async function renderAssignment() {
         const temaId = `tema_${plant.replace(/\s/g, '')}_${a.replace(/\s/g, '_')}_${m}`;
         const deptoId = `depto_${plant.replace(/\s/g, '')}_${a.replace(/\s/g, '_')}_${m}`;
 
-        html += `<td class="assign-td" style="border-left:2px solid #E2E8F0;">
+        html += `<td class="assign-td" style="border-left:2px solid #E8EDF2;">
                   <div class="assign-cell" contenteditable="true" id="${temaId}"
-                    data-placeholder="..."
+                    data-placeholder="Escribir IGP..."
                     onblur="onAssignCellBlur('${safeName}', ${m})"
                     data-inspector="${a}" data-mes="${m}" data-field="tema">${escapeHtml(d.igp_tema).replace(/\n/g, '<br>')}</div>
                 </td>
                 <td class="assign-td">
                   <div class="assign-cell" contenteditable="true" id="${deptoId}"
-                    data-placeholder="..."
+                    data-placeholder="Departamento..."
                     onblur="onAssignCellBlur('${safeName}', ${m})"
                     data-inspector="${a}" data-mes="${m}" data-field="depto">${escapeHtml(d.igp_depto).replace(/\n/g, '<br>')}</div>
                 </td>`;
