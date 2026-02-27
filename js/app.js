@@ -352,14 +352,14 @@ function sendEmail(selectedProgrammer) {
     body += `--------------------------------------------------\n`;
     body += `🔹 RESUMEN DE IGPs\n`;
     body += `Total IGPs:      ${totI}\n`;
-    body += `🔵 Terminadas:   ${terI}\n`;
+    body += `🟢 Terminadas:   ${terI}\n`;
     body += `🟡 En Ejecución: ${exeI}\n`;
     body += `🔴 Pendientes:   ${penI}\n`;
     body += `📈 Cumplimiento: ${perI}%\n`;
     body += `--------------------------------------------------\n`;
     body += `🔸 RESUMEN DE HALLAZGOS\n`;
     body += `Total Hallazgos: ${totH}\n`;
-    body += `🔵 Terminadas:   ${terH}\n`;
+    body += `🟢 Terminadas:   ${terH}\n`;
     body += `🟡 En Ejecución: ${exeH}\n`;
     body += `🔴 Pendientes:   ${penH}\n`;
     body += `📈 Cumplimiento: ${perH}%\n`;
@@ -390,7 +390,7 @@ function sendEmail(selectedProgrammer) {
         if (isAndres && AUDITOR_AREA[nameArea]) nameArea += ` (${AUDITOR_AREA[nameArea]})`;
         
         const shortEst = getShortStatus(r["Estado"]);
-        const icon = shortEst === 'E' ? '🔵' : (shortEst === 'EP' ? '🟡' : '🔴');
+        const icon = shortEst === 'E' ? '🟢' : (shortEst === 'EP' ? '🟡' : '🔴');
         const estText = r["Estado"] || 'Pendiente';
         
         body += `${nameArea}: ${estText} ${icon}\n`;
@@ -407,7 +407,7 @@ function sendEmail(selectedProgrammer) {
         if (isAndres && AUDITOR_AREA[nameArea]) nameArea += ` (${AUDITOR_AREA[nameArea]})`;
         
         const shortEst = getShortStatus(r["Estado"]);
-        const icon = shortEst === 'E' ? '🔵' : (shortEst === 'EP' ? '🟡' : '🔴');
+        const icon = shortEst === 'E' ? '🟢' : (shortEst === 'EP' ? '🟡' : '🔴');
         const estText = r["Estado"] || 'Pendiente';
         
         body += `${nameArea}: ${estText} ${icon}\n`;
