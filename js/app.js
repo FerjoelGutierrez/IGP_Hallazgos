@@ -330,7 +330,7 @@ function sendEmail(selectedProgrammer) {
   // --- RESUMEN GENERAL (Solo si es "Todas las Plantas") ---
   if (selectedProgrammer === 'all') {
     const allAuditors = plants.flatMap(p => PLANT_GROUPS[p]);
-    const allData = rawData.filter(r => allAuditors.includes(r["Auditor Asignado"]));
+    const allData = filteredData.filter(r => allAuditors.includes(r["Auditor Asignado"]));
     const allIGPs = allData.filter(r => (r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
     const allHallazgos = allData.filter(r => !(r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
     
@@ -372,7 +372,7 @@ function sendEmail(selectedProgrammer) {
 
   plants.forEach(plant => {
     const auditors = PLANT_GROUPS[plant];
-    const plantData = rawData.filter(r => auditors.includes(r["Auditor Asignado"]));
+    const plantData = filteredData.filter(r => auditors.includes(r["Auditor Asignado"]));
     if (plantData.length === 0) return;
 
     const prog = PLANT_PROGRAMMER[plant] || 'N/D';
