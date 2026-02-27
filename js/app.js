@@ -336,7 +336,7 @@ function sendEmail(selectedProgrammer) {
 
     body += `Estimado ${prog},\n\n`;
     body += `Recibe un cordial saludo.\n\n`;
-    body += `Por medio del presente, se adjunta el estado actual de las Inspecciones Generales Planeadas (IGP) correspondientes al mes de ${currentMonth.toLowerCase()}. Te recordamos la importancia de culminar las tareas asignadas dentro de los plazos establecidos como parte de tu gestión académica.\n\n`;
+    body += `Por medio del presente, se adjunta el estado actual de las Inspecciones Generales Planeadas (IGP) correspondientes al mes de ${currentMonth.toLowerCase()}. Te recordamos la importancia de culminar las tareas asignadas dentro de los plazos establecidos.\n\n`;
     
     body += `Detalles del Programador:\n`;
     body += `Planta: ${plant}\n`;
@@ -347,7 +347,7 @@ function sendEmail(selectedProgrammer) {
     // --- SECCIÓN IGPs ---
     const igps = plantData.filter(r => (r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
     if (igps.length > 0) {
-      body += `Inspector\t\tTema IGP\t\tDepartamento\t\tEstado\n`;
+      body += `INSPECTOR (AREA)\t\tESTADO\t\tTEMA IGP\t\tDEPARTAMENTO\n`;
       body += `--------------------------------------------------------------------------------\n`;
       igps.forEach(r => {
         let name = r["Auditor Asignado"] || '';
@@ -357,7 +357,7 @@ function sendEmail(selectedProgrammer) {
         const depto = r["Departamento"] || r["Área"] || '';
         const estado = r["Estado"] || '';
         
-        body += `${name}\t\t${tema}\t\t${depto}\t\t${estado}\n`;
+        body += `${name}\t\t${estado.toUpperCase()}\t\t${tema}\t\t${depto}\n`;
       });
       body += '\n';
     }
@@ -366,7 +366,7 @@ function sendEmail(selectedProgrammer) {
     const hallazgos = plantData.filter(r => !(r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
     if (hallazgos.length > 0) {
       body += `TABLA DE HALLAZGOS\n`;
-      body += `Inspector\t\tTipo\t\tEstado\n`;
+      body += `INSPECTOR (AREA)\t\tESTADO\t\tTIPO\n`;
       body += `--------------------------------------------------------------------------------\n`;
       hallazgos.forEach(r => {
         let name = r["Auditor Asignado"] || '';
@@ -375,7 +375,7 @@ function sendEmail(selectedProgrammer) {
         const tipo = r["Tipo de Auditoría"] || '';
         const estado = r["Estado"] || '';
         
-        body += `${name}\t\t${tipo}\t\t${estado}\n`;
+        body += `${name}\t\t${estado.toUpperCase()}\t\t${tipo}\n`;
       });
       body += '\n';
     }
