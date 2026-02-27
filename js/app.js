@@ -347,17 +347,15 @@ function sendEmail(selectedProgrammer) {
     // --- SECCIÓN IGPs ---
     const igps = plantData.filter(r => (r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
     if (igps.length > 0) {
-      body += `INSPECTOR (AREA)\t\t\tESTADO\n`;
-      body += `--------------------------------------------------\n\n`;
+      body += `IGPs - ${currentMonth.toUpperCase()}\n\n`;
       igps.forEach(r => {
-        let name = r["Auditor Asignado"] || '';
-        if (isAndres && AUDITOR_AREA[name]) name += ` (${AUDITOR_AREA[name]})`;
+        let nameArea = r["Auditor Asignado"] || '';
+        if (isAndres && AUDITOR_AREA[nameArea]) nameArea += ` (${AUDITOR_AREA[nameArea]})`;
         
         const est = (r["Estado"] || '').toUpperCase();
         const icon = est.includes('TERM') ? '🟢' : '🔴';
         
-        // Interlineado 1.5 (doble salto de línea)
-        body += `**${name.padEnd(25)}**\t\t${icon} ${est}\n\n`;
+        body += `${nameArea} ${icon}\n\n`;
       });
       body += '\n';
     }
@@ -365,17 +363,15 @@ function sendEmail(selectedProgrammer) {
     // --- SECCIÓN HALLAZGOS ---
     const hallazgos = plantData.filter(r => !(r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
     if (hallazgos.length > 0) {
-      body += `🔍 TABLA DE HALLAZGOS\n`;
-      body += `INSPECTOR (AREA)\t\t\tESTADO\n`;
-      body += `--------------------------------------------------\n\n`;
+      body += `HALLAZGOS\n\n`;
       hallazgos.forEach(r => {
-        let name = r["Auditor Asignado"] || '';
-        if (isAndres && AUDITOR_AREA[name]) name += ` (${AUDITOR_AREA[name]})`;
+        let nameArea = r["Auditor Asignado"] || '';
+        if (isAndres && AUDITOR_AREA[nameArea]) nameArea += ` (${AUDITOR_AREA[nameArea]})`;
         
         const est = (r["Estado"] || '').toUpperCase();
         const icon = est.includes('TERM') ? '🟢' : '🔴';
         
-        body += `**${name.padEnd(25)}**\t\t${icon} ${est}\n\n`;
+        body += `${nameArea} ${icon}\n\n`;
       });
       body += '\n';
     }
