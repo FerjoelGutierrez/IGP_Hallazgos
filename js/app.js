@@ -315,8 +315,9 @@ function exportAllPlantsPDF(selectedProgrammer) {
 }
 
 function sendEmail(selectedProgrammer) {
+  const plantsSortOrder = ["Planta Exteriores", "Planta 1", "Planta 2"];
   const plants = selectedProgrammer === 'all'
-    ? Object.keys(PLANT_GROUPS)
+    ? plantsSortOrder.filter(p => PLANT_GROUPS[p])
     : Object.keys(PLANT_PROGRAMMER).filter(p => PLANT_PROGRAMMER[p] === selectedProgrammer);
 
   const now = new Date();
@@ -331,22 +332,30 @@ function sendEmail(selectedProgrammer) {
     const allAuditors = plants.flatMap(p => PLANT_GROUPS[p]);
     const allData = rawData.filter(r => allAuditors.includes(r["Auditor Asignado"]));
     const allIGPs = allData.filter(r => (r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
+    const allHallazgos = allData.filter(r => !(r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
     
     const total = allIGPs.length;
     const term = allIGPs.filter(r => (r["Estado"] || '').includes('Terminada')).length;
     const exec = allIGPs.filter(r => (r["Estado"] || '').includes('En Ejecución')).length;
     const pend = allIGPs.filter(r => (r["Estado"] || '').includes('Pendiente')).length;
     const perc = total > 0 ? ((term / total) * 100).toFixed(1) : 0;
+    const totalHallazgos = allHallazgos.length;
 
     body += `📊 RESUMEN GENERAL DE GESTIÓN IGP - ${currentMonth.toUpperCase()} ${currentYear}\n`;
-    body += `--------------------------------------------------\n`;
-    body += `Total IGPs:        ${total}\n`;
-    body += `🔵 Terminadas:     ${term}\n`;
-    body += `🟡 En Ejecución:   ${exec}\n`;
-    body += `🔴 Pendientes:     ${pend}\n`;
-    body += `📈 Cumplimiento:   ${perc}%\n`;
-    body += `--------------------------------------------------\n\n`;
+    body += `------------------------------------------------------------\n`;
+    body += `RESUMEN IGPs                      |  HALLAZGOS\n`;
+    body += `----------------------------------|-------------------------\n`;
+    body += `Total IGPs:      ${total.toString().padEnd(7)}          |  Total Hallazgos: ${totalHallazgos}\n`;
+    body += `🔵 Terminadas:   ${term.toString().padEnd(7)}          |\n`;
+    body += `🟡 En Ejecución: ${exec.toString().padEnd(7)}          |\n`;
+    body += `🔴 Pendientes:   ${pend.toString().padEnd(7)}          |\n`;
+    body += `📈 Cumplimiento: ${perc}%`.padEnd(34) + `|\n`;
+    body += `------------------------------------------------------------\n\n`;
   }
+
+  body += `Estimados Inspectores - Planta 1, Planta 2, y Exteriores,\n\n`;
+  body += `Reciban un cordial saludo.\n\n`;
+  body += `Por medio del presente, les adjunto el estado actual de las Inspecciones Generales Planeadas (IGP) correspondientes al mes de ${currentMonth.toLowerCase()}. Les recuerdo la importancia de culminar las tareas asignadas dentro de los plazos establecidos.\n\n`;
 
   plants.forEach(plant => {
     const auditors = PLANT_GROUPS[plant];
@@ -356,24 +365,22 @@ function sendEmail(selectedProgrammer) {
     const prog = PLANT_PROGRAMMER[plant] || 'N/D';
     const isAndres = (prog === 'Andrés Mena');
 
-    body += `Estimados Inspectores - Planta ${plant},\n\n`;
-    body += `Reciban un cordial saludo.\n\n`;
-    body += `Por medio del presente, les adjunto el estado actual de las Inspecciones Generales Planeadas (IGP) correspondientes al mes de ${currentMonth.toLowerCase()}. Les recuerdo la importancia de culminar las tareas asignadas dentro de los plazos establecidos.\n\n`;
-    
-    body += `Estado de Avance - ${currentMonth} ${currentYear}\n\n`;
+    body += `ESTADO AVANCE ${currentMonth.toUpperCase()} ${currentYear}\n`;
+    body += `IGPs de ${plant === 'Planta Exteriores' ? 'Exteriores' : plant} - ${prog}\n`;
+    body += `--------------------------------------------------\n`;
 
     // --- SECCIÓN IGPs ---
     const igps = plantData.filter(r => (r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
     if (igps.length > 0) {
-      body += `IGPs - ${currentMonth.toUpperCase()}\n\n`;
       igps.forEach(r => {
         let nameArea = r["Auditor Asignado"] || '';
         if (isAndres && AUDITOR_AREA[nameArea]) nameArea += ` (${AUDITOR_AREA[nameArea]})`;
         
-        const est = (r["Estado"] || '').toUpperCase();
-        const icon = est.includes('TERM') ? '🟢' : '🔴';
+        const shortEst = getShortStatus(r["Estado"]);
+        const icon = shortEst === 'E' ? '🔵' : (shortEst === 'EP' ? '🟡' : '🔴');
+        const estText = r["Estado"] || 'Pendiente';
         
-        body += `${nameArea} ${icon}\n\n`;
+        body += `${nameArea}: ${estText} ${icon}\n`;
       });
       body += '\n';
     }
@@ -381,27 +388,28 @@ function sendEmail(selectedProgrammer) {
     // --- SECCIÓN HALLAZGOS ---
     const hallazgos = plantData.filter(r => !(r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
     if (hallazgos.length > 0) {
-      body += `HALLAZGOS\n\n`;
+      body += `HALLAZGOS - ${prog}\n`;
       hallazgos.forEach(r => {
         let nameArea = r["Auditor Asignado"] || '';
         if (isAndres && AUDITOR_AREA[nameArea]) nameArea += ` (${AUDITOR_AREA[nameArea]})`;
         
-        const est = (r["Estado"] || '').toUpperCase();
-        const icon = est.includes('TERM') ? '🟢' : '🔴';
+        const shortEst = getShortStatus(r["Estado"]);
+        const icon = shortEst === 'E' ? '🔵' : (shortEst === 'EP' ? '🟡' : '🔴');
+        const estText = r["Estado"] || 'Pendiente';
         
-        body += `${nameArea} ${icon}\n\n`;
+        body += `${nameArea}: ${estText} ${icon}\n`;
       });
       body += '\n';
     }
 
-    body += `Quedamos atentos a la actualización de los casos pendientes.\n\n`;
-    body += `Atentamente,\n\n`;
-    body += `${prog}\n`;
-    body += `Coordinador SST - Vitapro S.A.\n\n`;
-    body += `${'='.repeat(35)}\n\n`;
+    body += `\n`;
   });
 
-  const subject = `REPORTE DE GESTIÓN IGP – ${currentMonth.toUpperCase()} ${currentYear}`;
+  body += `Quedamos atentos a la actualización de los casos.\n\n`;
+  body += `Atentamente,\n\n`;
+  body += `Seguridad Industrial Vitapro S.A.\n`;
+
+  const subject = `REPORTE DE GESTIÓN IGP & HALLAZGOS – ${currentMonth.toUpperCase()} ${currentYear}`;
 
   window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }

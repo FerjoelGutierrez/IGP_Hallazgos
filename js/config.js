@@ -45,8 +45,8 @@ const PLANT_GROUPS = {
 
 const PLANT_PROGRAMMER = {
   "Planta Exteriores": "Andrés Mena",
-  "Planta 1": "Lucia Veliz",
-  "Planta 2": "Nicole Facuy"
+  "Planta 1": "Nicole Facuy",
+  "Planta 2": "Lucia Veliz"
 };
 
 const BLOCKED_AUDITORS = [
