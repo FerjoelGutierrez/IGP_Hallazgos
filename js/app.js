@@ -555,82 +555,143 @@ function generateHistoryReport() {
     if (d instanceof Date) {
       mes = MONTH_NAMES[d.getMonth() + 1];
       year = d.getFullYear().toString();
-    } else if (typeof d === 'string' && d.length >= 7) {
-      year = d.substring(0, 4);
-      mes = MONTH_NAMES[parseInt(d.substring(5, 7))];
+    } else if (typeof d === 'string') {
+      if (d.includes('-')) {
+        year = d.split('-')[0];
+        mes = MONTH_NAMES[parseInt(d.split('-')[1])];
+      } else if (d.includes('/')) {
+        year = d.split('/')[2];
+        mes = MONTH_NAMES[parseInt(d.split('/')[1])];
+      }
     }
-
     return year === y && mes === m;
   });
 
   if (histData.length === 0) return alert(`No se encontraron datos para ${m} ${y}`);
 
-  const doc = new jspdf.jsPDF('l', 'mm', 'a4');
+  const doc = new jspdf.jsPDF('p', 'mm', 'a4');
   
-  // Header
-  doc.setFontSize(18);
-  doc.setTextColor(15, 23, 42); // Navy Blue
-  doc.text(`REPORTE DETALLADO IGP - ${m.toUpperCase()} ${y}`, 14, 20);
+  // --- HEADER PRINCIPAL ---
+  doc.setFontSize(22);
+  doc.setTextColor(15, 23, 42); // Navy
+  doc.setFont(undefined, 'bold');
+  doc.text("INFORME DE GESTIÓN IGP & HALLAZGOS", 14, 20);
   
-  doc.setFontSize(10);
+  doc.setFontSize(14);
   doc.setTextColor(100);
-  doc.text(`Generado el: ${new Date().toLocaleString()}`, 14, 28);
-  doc.text(`Total de registros: ${histData.length}`, 14, 33);
+  doc.setFont(undefined, 'normal');
+  doc.text(`PERIODO: ${m.toUpperCase()} ${y}`, 14, 28);
+  
+  doc.setFontSize(9);
+  doc.text(`Fecha de emisión: ${new Date().toLocaleString()}`, 14, 34);
+  doc.setDrawColor(15, 23, 42);
+  doc.setLineWidth(0.5);
+  doc.line(14, 36, 196, 36);
 
-  // Table
-  const columns = [
-    { header: 'Inspector', dataKey: 'auditor' },
-    { header: 'Área/Planta', dataKey: 'planta' },
-    { header: 'Departamento', dataKey: 'depto' },
-    { header: 'Tipo de Auditoría', dataKey: 'tipo' },
-    { header: 'Unidad', dataKey: 'unidad' },
-    { header: 'Fecha', dataKey: 'fecha' },
-    { header: 'Estado', dataKey: 'estado' },
-    { header: 'Observaciones', dataKey: 'obs' }
-  ];
+  // --- CÁLCULO DE ESTADÍSTICAS (KPIs) ---
+  const igps = histData.filter(r => (r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
+  const hallazgos = histData.filter(r => !(r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
 
-  const body = histData.map(r => {
-    let depto = r["Departamento"] || '';
-    if (!depto) {
-      const deptoKey = Object.keys(r).find(k => k.toLowerCase().includes('depto') || k.toLowerCase().includes('departamento'));
-      if (deptoKey) depto = r[deptoKey] || '';
-    }
+  const getStats = (list) => {
+    const tot = list.length;
+    const ej = list.filter(r => getShortStatus(r.Estado) === 'E').length;
+    const pen = list.filter(r => getShortStatus(r.Estado) === 'P').length;
+    const prox = list.filter(r => getShortStatus(r.Estado) === 'EP').length;
+    const pct = tot > 0 ? ((ej / tot) * 100).toFixed(1) : 0;
+    return { tot, ej, pen, prox, pct };
+  };
 
-    return {
-      auditor: r["Auditor Asignado"] || 'N/D',
-      planta: getPlantFromAuditor(r["Auditor Asignado"]),
-      depto: depto,
-      tipo: r["Tipo de Auditoría"] || 'N/D',
-      unidad: r["Unidad"] || '',
-      fecha: r["Fecha de Creación"] instanceof Date ? r["Fecha de Creación"].toLocaleDateString() : (r["Fecha de Creación"] || ''),
-      estado: r["Estado"] || 'Pendiente',
-      obs: r["Observaciones"] || ''
-    };
-  });
+  const sI = getStats(igps);
+  const sH = getStats(hallazgos);
 
-  doc.autoTable({
-    columns: columns,
-    body: body,
-    startY: 40,
-    theme: 'grid',
-    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 10, fontStyle: 'bold' },
-    bodyStyles: { fontSize: 9 },
-    columnStyles: {
-      obs: { cellWidth: 40 },
-      tipo: { cellWidth: 40 },
-      auditor: { cellWidth: 35 }
-    },
-    didParseCell: (data) => {
-      if (data.column.dataKey === 'estado' && data.section === 'body') {
-        const s = getShortStatus(data.cell.raw);
-        if (s === 'E') { data.cell.styles.textColor = [16, 185, 129]; data.cell.styles.fontStyle = 'bold'; }
-        if (s === 'P') { data.cell.styles.textColor = [239, 68, 68]; data.cell.styles.fontStyle = 'bold'; }
-        if (s === 'EP') { data.cell.styles.textColor = [245, 158, 11]; data.cell.styles.fontStyle = 'bold'; }
+  // --- CUADROS DE RESUMEN ---
+  // Estilo Cajas
+  doc.setDrawColor(226, 232, 240);
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(14, 42, 88, 48, 3, 3, 'FD'); // Caja IGP
+  doc.roundedRect(108, 42, 88, 48, 3, 3, 'FD'); // Caja Hallazgos
+
+  // Textos IGP
+  doc.setFontSize(11); doc.setTextColor(15, 23, 42); doc.setFont(undefined, 'bold');
+  doc.text("RESUMEN DE IGPs", 18, 48);
+  doc.setFont(undefined, 'normal'); doc.setFontSize(9);
+  doc.setTextColor(71, 85, 105);
+  doc.text(`Total Programadas: ${sI.tot}`, 18, 56);
+  doc.setTextColor(16, 185, 129); doc.text(`🟢 Terminadas / Ejecutadas: ${sI.ej}`, 18, 62);
+  doc.setTextColor(245, 158, 11); doc.text(`🟡 En Ejecución / Proceso: ${sI.prox}`, 18, 68);
+  doc.setTextColor(239, 68, 68); doc.text(`🔴 Pendientes: ${sI.pen}`, 18, 74);
+  doc.setTextColor(15, 23, 42); doc.setFontSize(13); doc.setFont(undefined, 'bold');
+  doc.text(`CUMPLIMIENTO: ${sI.pct}%`, 18, 83);
+
+  // Textos Hallazgos
+  doc.setFontSize(11); doc.setTextColor(15, 23, 42); doc.setFont(undefined, 'bold');
+  doc.text("RESUMEN DE HALLAZGOS", 112, 48);
+  doc.setFont(undefined, 'normal'); doc.setFontSize(9);
+  doc.setTextColor(71, 85, 105);
+  doc.text(`Total Reportados: ${sH.tot}`, 112, 56);
+  doc.setTextColor(16, 185, 129); doc.text(`🟢 Terminadas / Ejecutadas: ${sH.ej}`, 112, 62);
+  doc.setTextColor(245, 158, 11); doc.text(`🟡 En Ejecución / Proceso: ${sH.prox}`, 112, 68);
+  doc.setTextColor(239, 68, 68); doc.text(`🔴 Pendientes: ${sH.pen}`, 112, 74);
+  doc.setTextColor(15, 23, 42); doc.setFontSize(13); doc.setFont(undefined, 'bold');
+  doc.text(`CUMPLIMIENTO: ${sH.pct}%`, 112, 83);
+
+  // --- TABLAS DETALLADAS ---
+  let yPos = 100;
+
+  const renderTable = (title, data, headerColor) => {
+    if (data.length === 0) return;
+    
+    // Si la tabla no cabe en la página actual
+    if (yPos > 240) { doc.addPage(); yPos = 20; }
+
+    doc.setFontSize(13);
+    doc.setTextColor(headerColor[0], headerColor[1], headerColor[2]);
+    doc.setFont(undefined, 'bold');
+    doc.text(title, 14, yPos);
+    yPos += 4;
+
+    doc.autoTable({
+      startY: yPos,
+      head: [['Inspector', 'Planta', 'Departamento', 'Estado', 'Observaciones']],
+      body: data.map(r => [
+        r["Auditor Asignado"] || 'N/D',
+        getPlantFromAuditor(r["Auditor Asignado"]),
+        r["Departamento"] || 'N/D',
+        r["Estado"] || 'Pendiente',
+        r["Observaciones"] || ''
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: headerColor, textColor: 255, fontSize: 9 },
+      styles: { fontSize: 8, cellPadding: 3 },
+      columnStyles: {
+        4: { cellWidth: 55 } // Ancho para observaciones
+      },
+      didParseCell: (d) => {
+        if (d.column.index === 3 && d.section === 'body') {
+          const s = getShortStatus(d.cell.raw);
+          if (s === 'E') { d.cell.styles.textColor = [16, 185, 129]; d.cell.styles.fontStyle = 'bold'; }
+          if (s === 'P') { d.cell.styles.textColor = [239, 68, 68]; d.cell.styles.fontStyle = 'bold'; }
+          if (s === 'EP') { d.cell.styles.textColor = [245, 158, 11]; d.cell.styles.fontStyle = 'bold'; }
+        }
       }
-    }
-  });
+    });
 
-  doc.save(`Reporte_Detallado_IGP_${m}_${y}.pdf`);
+    yPos = doc.lastAutoTable.finalY + 15;
+  };
+
+  renderTable("DETALLES DE INSPECCIONES (IGP)", igps, [15, 23, 42]);
+  renderTable("DETALLES DE HALLAZGOS / ACCIONES", hallazgos, [239, 68, 68]);
+
+  // Pie de página
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text(`Página ${i} de ${pageCount} - IGP Dashboard Vitapro`, 14, 285);
+  }
+
+  doc.save(`Informe_Gestion_IGP_${m}_${y}.pdf`);
 }
 
 async function clearSavedData() {
