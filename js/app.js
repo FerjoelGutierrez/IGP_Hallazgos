@@ -101,7 +101,7 @@ function handleFiles(files) {
           if (!deptoValue) {
             const keys = Object.keys(r);
             const deptoKey = keys.find(k => {
-              const lk = k.toLowerCase().trim();
+              const lk = k.toString().toLowerCase().trim();
               return lk.includes('depto') || lk.includes('departamento') || lk.includes('área de trabajo') || lk.includes('ubicación');
             });
             if (deptoKey) deptoValue = r[deptoKey] || '';
@@ -110,7 +110,7 @@ function handleFiles(files) {
           return {
             ...r,
             "Auditor Asignado": auditor,
-            "Departamento": deptoValue.toString().trim(),
+            "Departamento": (deptoValue || '').toString().trim(),
             "Programador": computedProgrammer,
             "Estado": r["Estado"] || 'Pendiente',
             "Observaciones": r['Observaciones'] || ''
@@ -118,8 +118,10 @@ function handleFiles(files) {
         });
 
       // --- LÓGICA DE FUSIÓN (MERGE) CON NORMALIZACIÓN ---
+      if (!Array.isArray(rawData)) rawData = [];
       const existingMap = new Map();
       rawData.forEach(r => {
+        if (!r) return;
         const key = getCompositeKey(r);
         existingMap.set(key, r);
       });
