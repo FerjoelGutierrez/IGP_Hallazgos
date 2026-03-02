@@ -187,6 +187,8 @@ function renderPlantReport(data) {
     const eCount = activeAuds.filter(a => audStats[a] === 'E').length;
     const compliance = (eCount / activeAuds.length) * 100;
 
+    const showArea = (plant === "Planta Exteriores");
+
     // 1. Obtener sub-áreas únicas para los BOTONES de Exteriores
     let subAreaFilterHTML = '';
     if (showArea) {
