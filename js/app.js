@@ -71,75 +71,93 @@ function handleFiles(files) {
     const reader = new FileReader();
     reader.onload = async (evt) => {
       const workbook = XLSX.read(evt.target.result, { type: 'array', cellDates: true });
-      const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+      
+      // --- LEER TODAS LAS HOJAS ---
+      let allJson = [];
+      workbook.SheetNames.forEach(sheetName => {
+        const sheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(sheet);
+        if (json.length > 0) {
+          console.log(`📄 Hoja detectada: ${sheetName} (${json.length} filas)`);
+          allJson = allJson.concat(json);
+        }
+      });
+
+      if (allJson.length === 0) return alert("El archivo está vacío");
+
       const savedEdits = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
 
-      // Log column names for debugging
-      if (json.length > 0) {
-        console.log('📋 Columnas del Excel:', Object.keys(json[0]));
-      }
-
-      const incomingRecords = json
+      const incomingRecords = allJson
         .filter(r => {
-          const audName = r["Auditor Asignado"] || "";
-          return !BLOCKED_AUDITORS_SET.has(audName.toLowerCase().trim());
+          const audName = (r["Auditor Asignado"] || "").toString().toLowerCase().trim();
+          return audName && !BLOCKED_AUDITORS_SET.has(audName);
         })
         .map((r) => {
-          const auditor = r["Auditor Asignado"] || '';
+          const auditor = (r["Auditor Asignado"] || '').toString().trim();
           const computedProgrammer = r["Programador"] || getProgrammerFromAuditor(auditor);
-          const key = getCompositeKey(r);
-          const saved = savedEdits[key];
-
-          // NORMALIZAR DEPARTAMENTO (Busca variaciones en los nombres de las columnas)
+          
+          // NORMALIZAR DEPARTAMENTO
           let deptoValue = r["Departamento"] || '';
           if (!deptoValue) {
             const keys = Object.keys(r);
             const deptoKey = keys.find(k => {
               const lk = k.toLowerCase().trim();
-              return lk.includes('depto') || lk.includes('departamento') || lk.includes('área de trabajo');
+              return lk.includes('depto') || lk.includes('departamento') || lk.includes('área de trabajo') || lk.includes('ubicación');
             });
             if (deptoKey) deptoValue = r[deptoKey] || '';
           }
 
           return {
             ...r,
-            "Departamento": deptoValue, // Propiedad normalizada
+            "Auditor Asignado": auditor,
+            "Departamento": deptoValue.toString().trim(),
             "Programador": computedProgrammer,
-            "Estado": saved ? saved.Estado : r["Estado"],
-            "Observaciones": saved ? saved.Observaciones : (r['Observaciones'] || '')
+            "Estado": r["Estado"] || 'Pendiente',
+            "Observaciones": r['Observaciones'] || ''
           };
         });
 
-      // --- LÓGICA DE ACUMULACIÓN (MERGE) ---
-      // Creamos un mapa de los registros existentes por su clave única
+      // --- LÓGICA DE FUSIÓN (MERGE) CON NORMALIZACIÓN ---
       const existingMap = new Map();
-      rawData.forEach(r => existingMap.set(getCompositeKey(r), r));
+      rawData.forEach(r => {
+        const key = getCompositeKey(r);
+        existingMap.set(key, r);
+      });
 
       incomingRecords.forEach(nr => {
         const key = getCompositeKey(nr);
+        const saved = savedEdits[key];
+
         if (existingMap.has(key)) {
-          // Si ya existe, actualizamos los datos básicos pero mantenemos el estado/obs que ya teníamos
-          // (Opcional: podrías decidir que el Excel mande sobre el estado si no hay edición guardada)
           const old = existingMap.get(key);
-          existingMap.set(key, { ...old, ...nr, "Estado": old.Estado, "Observaciones": old.Observaciones });
+          // Actualizar datos pero mantener Estado/Obs si ya fueron editados localmente o guardados
+          const finalState = saved ? saved.Estado : (old.Estado || nr.Estado);
+          const finalObs = saved ? saved.Observaciones : (old.Observaciones || nr.Observaciones);
+          
+          existingMap.set(key, { 
+            ...old, 
+            ...nr, 
+            "Estado": finalState, 
+            "Observaciones": finalObs 
+          });
         } else {
-          // Si es nuevo, lo agregamos
+          // Registro nuevo
+          if (saved) {
+            nr["Estado"] = saved.Estado;
+            nr["Observaciones"] = saved.Observaciones;
+          }
           existingMap.set(key, nr);
         }
       });
 
-      // Convertimos el mapa de vuelta a array y re-asignamos IDs internos
       rawData = Array.from(existingMap.values()).map((r, idx) => ({ ...r, _id: idx }));
 
-      // Guardar en Supabase en segundo plano (saveRecordsToSupabase ya maneja duplicados en BD)
-      saveRecordsToSupabase(incomingRecords).then(ok => {
-        if (ok) console.log('✅ Sincronizado con Supabase');
-      });
+      // Sincronizar en Supabase
+      saveRecordsToSupabase(incomingRecords);
 
       document.getElementById('welcome-screen').classList.add('hidden');
       setTimeout(() => document.getElementById('welcome-screen').style.display = 'none', 500);
 
-      // Guardar en localStorage acumulado
       localStorage.setItem(STORAGE_DATA_KEY, JSON.stringify(rawData));
       initDashboard();
     };

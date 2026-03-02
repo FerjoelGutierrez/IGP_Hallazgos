@@ -12,7 +12,16 @@ function getShortStatus(s) {
 }
 
 function getCompositeKey(r) {
-  return `${r["Fecha de Creación"] || ''}_${r["Auditor Asignado"] || ''}_${r["Área"] || ''}_${r["Unidad"] || ''}`;
+  const fecha = r["Fecha de Creación"];
+  let fStr = "";
+  if (fecha instanceof Date) fStr = fecha.toISOString().substring(0, 10);
+  else fStr = (fecha || "").toString().substring(0, 10);
+
+  const auditor = (r["Auditor Asignado"] || "").toString().toLowerCase().trim();
+  const area = (r["Área"] || "").toString().toLowerCase().trim();
+  const unidad = (r["Unidad"] || "").toString().toLowerCase().trim();
+
+  return `${fStr}_${auditor}_${area}_${unidad}`;
 }
 
 function getProgrammerFromAuditor(auditorName) {

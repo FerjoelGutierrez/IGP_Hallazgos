@@ -255,23 +255,35 @@ async function renderAssignment() {
   const autoAssignments = {};
   if (typeof rawData !== 'undefined' && rawData.length > 0) {
     rawData.forEach(r => {
-      const tipo = (r["Tipo de Auditoría"] || '').trim();
-      // SOLO incluir registros que empiezan con "IGP"
-      if (!isIGPType(tipo)) return;
+      const InspectorRaw = r["Auditor Asignado"] || '';
+      if (!InspectorRaw) return;
 
-      const fecha = r["Fecha de Creación"] || '';
+      const fecha = r["Fecha de Creación"];
+      if (!fecha) return;
+
       let mes = 0;
       let year = 0;
 
-      // Manejar diferentes formatos de fecha (String o Date objeto)
+      // --- Normalización de Fecha Ultra-Robusta ---
       if (fecha instanceof Date) {
         mes = fecha.getMonth() + 1;
         year = fecha.getFullYear();
-      } else if (typeof fecha === 'string' && fecha.length >= 7) {
-        year = parseInt(fecha.substring(0, 4));
-        mes = parseInt(fecha.substring(5, 7));
+      } else if (typeof fecha === 'string') {
+        // Soporta 2026-02-01 y 01/02/2026
+        if (fecha.includes('-')) {
+          const parts = fecha.split('-');
+          if (parts[0].length === 4) { // YYYY-MM-DD
+            year = parseInt(parts[0]);
+            mes = parseInt(parts[1]);
+          }
+        } else if (fecha.includes('/')) {
+          const parts = fecha.split('/');
+          if (parts[2]?.length === 4) { // DD/MM/YYYY
+            year = parseInt(parts[2]);
+            mes = parseInt(parts[1]);
+          }
+        }
       } else if (typeof fecha === 'number') {
-        // Excel date number format fallback (aproximado si no viene como Date)
         const d = new Date((fecha - 25569) * 86400 * 1000);
         mes = d.getMonth() + 1;
         year = d.getFullYear();
@@ -279,32 +291,34 @@ async function renderAssignment() {
 
       if (year !== currentAssignYear || mes === 0) return;
       
-      const inspector = r["Auditor Asignado"] || '';
-      if (!inspector) return;
-
-      const key = `${inspector}_${mes}`;
-      
-      // Búsqueda exhaustiva del departamento
-      let depto = r["Departamento"] || '';
-      if (!depto) {
-        const keys = Object.keys(r);
-        const deptoKey = keys.find(k => {
-          const lowerK = k.toLowerCase();
-          return lowerK.includes('depto') || lowerK.includes('departamento') || lowerK.includes('área de trabajo');
-        });
-        if (deptoKey) depto = r[deptoKey] || '';
+      const key = `${InspectorRaw}_${mes}`;
+      if (!autoAssignments[key]) {
+        autoAssignments[key] = { igp_tema: '', igp_depto: '' };
       }
 
-      if (!autoAssignments[key]) {
-        autoAssignments[key] = { igp_tema: tipo, igp_depto: depto };
-      } else {
-        // Evitar duplicados exactos en la misma celda
-        if (tipo && !autoAssignments[key].igp_tema.includes(tipo)) {
-          autoAssignments[key].igp_tema += '\n' + tipo;
+      // 1. Extraer Tema (SOLO si es tipo IGP)
+      const tipo = (r["Tipo de Auditoría"] || '').trim();
+      if (isIGPType(tipo)) {
+        if (!autoAssignments[key].igp_tema.includes(tipo)) {
+          if (autoAssignments[key].igp_tema) autoAssignments[key].igp_tema += '\n';
+          autoAssignments[key].igp_tema += tipo;
         }
-        if (depto && !autoAssignments[key].igp_depto.includes(depto)) {
-          autoAssignments[key].igp_depto += '\n' + depto;
-        }
+      }
+
+      // 2. Extraer Departamento (De CUALQUIER fila del inspector este mes)
+      let depto = r["Departamento"] || '';
+      // Re-intento de búsqueda si está vacío (por si acaso no se normalizó)
+      if (!depto) {
+        const dKey = Object.keys(r).find(k => {
+          const lk = k.toLowerCase();
+          return lk.includes('depto') || lk.includes('departamento') || lk.includes('área de trabajo');
+        });
+        if (dKey) depto = r[dKey] || '';
+      }
+
+      if (depto && !autoAssignments[key].igp_depto.includes(depto)) {
+        if (autoAssignments[key].igp_depto) autoAssignments[key].igp_depto += '\n';
+        autoAssignments[key].igp_depto += depto;
       }
     });
   }
