@@ -187,29 +187,32 @@ function renderPlantReport(data) {
     const eCount = activeAuds.filter(a => audStats[a] === 'E').length;
     const compliance = (eCount / activeAuds.length) * 100;
 
-    // 1. Obtener sub-áreas únicas para el filtro local de Exteriores
+    // 1. Obtener sub-áreas únicas para los BOTONES de Exteriores
     let subAreaFilterHTML = '';
     if (showArea) {
       const subAreas = [...new Set(activeAuds.map(a => AUDITOR_AREA[a] || 'N/D'))].sort();
       subAreaFilterHTML = `
-        <select class="btn btn-secondary btn-sm" style="font-size:11px; margin-right:8px;" 
-                onchange="filterPlantTable(this, '${plant.replace(/\s/g, '')}')">
-          <option value="all">Todas las Áreas</option>
-          ${subAreas.map(sa => `<option value="${sa}">${sa}</option>`).join('')}
-        </select>`;
+        <div class="subarea-buttons" style="display:flex; gap:6px; margin-right:12px;">
+          <button class="btn btn-secondary btn-sm active" data-val="all" 
+                  onclick="filterPlantTable(this, '${plant.replace(/\s/g, '')}')">Todas</button>
+          ${subAreas.map(sa => `
+            <button class="btn btn-secondary btn-sm" data-val="${sa}" 
+                    onclick="filterPlantTable(this, '${plant.replace(/\s/g, '')}')">${sa}</button>
+          `).join('')}
+        </div>`;
     }
 
     const card = document.createElement('div');
     card.className = 'card';
     card.innerHTML = `
-      <div class="card-header">
-        <div>
+      <div class="card-header" style="flex-wrap: wrap; gap: 12px;">
+        <div style="flex:1; min-width:200px;">
           <h3>${plant}</h3>
           <div style="font-size:12px; color:var(--text-secondary);">
             Programador: <b>${programmersName}</b> · Cumplimiento: ${compliance.toFixed(1)}%
           </div>
         </div>
-        <div style="display:flex; align-items:center;">
+        <div style="display:flex; align-items:center; flex-wrap:wrap; gap:8px;">
           ${subAreaFilterHTML}
           <button class="btn btn-secondary btn-sm" onclick="exportPlantPDF('${plant}')">
             <i class="fas fa-file-pdf"></i> PDF
@@ -252,8 +255,14 @@ function renderPlantReport(data) {
   });
 }
 
-function filterPlantTable(select, tableId) {
-  const val = select.value;
+function filterPlantTable(btn, tableId) {
+  const val = btn.getAttribute('data-val');
+  
+  // Actualizar estado activo de los botones
+  const parent = btn.parentElement;
+  parent.querySelectorAll('button').forEach(b => b.classList.remove('active', 'btn-primary'));
+  btn.classList.add('active');
+  
   const rows = document.querySelectorAll(`#table-plant-${tableId} tbody tr`);
   rows.forEach(r => {
     if (val === 'all' || r.getAttribute('data-subarea') === val) {

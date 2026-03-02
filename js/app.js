@@ -179,12 +179,11 @@ function initDashboard() {
       return (typeof d === 'string' && d.length >= 7) ? MONTH_NAMES[parseInt(d.substring(5, 7))] : null;
     }))].filter(Boolean).sort((a, b) => MONTH_NAMES.indexOf(a) - MONTH_NAMES.indexOf(b)),
     area: [...new Set(rawData.map(r => getPlantFromAuditor(r["Auditor Asignado"])))].filter(Boolean).sort(),
-    subarea: [...new Set(rawData.map(r => AUDITOR_AREA[r["Auditor Asignado"]] || 'Otros'))].filter(Boolean).sort(),
     type: [...new Set(rawData.map(r => r["Tipo de Auditoría"]))].filter(Boolean).sort(),
     auditor: [...new Set(rawData.map(r => r["Auditor Asignado"]))].filter(Boolean).sort(),
     programmer: [...new Set(rawData.map(r => r["Programador"]))].filter(Boolean).sort()
   };
-  ["year", "month", "area", "subarea", "type", "auditor", "programmer"].forEach(k => createFilter(k, opts[k]));
+  ["year", "month", "area", "type", "auditor", "programmer"].forEach(k => createFilter(k, opts[k]));
   updateDashboard();
 }
 
@@ -241,7 +240,7 @@ function filterOptions(filterId, text) {
 // --- CORE LOGIC ---
 function updateDashboard() {
   const filters = {};
-  ['year', 'month', 'area', 'subarea', 'type', 'auditor', 'programmer'].forEach(k => {
+  ['year', 'month', 'area', 'type', 'auditor', 'programmer'].forEach(k => {
     const c = document.getElementById('filter-' + k);
     filters[k] = c ? Array.from(c.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value) : [];
   });
@@ -262,8 +261,7 @@ function updateDashboard() {
 
     if (filters.year.length && !filters.year.includes(y)) return false;
     if (filters.month.length && !filters.month.includes(m)) return false;
-    if (filters.area.length && !filters.area.includes(getPlantFromAuditor(r["Auditor Asignado"]))) return false;
-    if (filters.subarea.length && !filters.subarea.includes(AUDITOR_AREA[r["Auditor Asignado"]] || 'Otros')) return false;
+    if (filters.area.length && !filters.area.includes(r["Área"])) return false;
     if (filters.type.length && !filters.type.includes(r["Tipo de Auditoría"])) return false;
     if (filters.auditor.length && !filters.auditor.includes(r["Auditor Asignado"])) return false;
     if (filters.programmer.length && !filters.programmer.includes(r["Programador"])) return false;

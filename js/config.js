@@ -79,6 +79,6 @@ const AUDITOR_AREA = {
 const MONTH_NAMES = ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
 const FILTER_LABELS = {
-  year: 'Año', month: 'Mes', area: 'Planta', subarea: 'Unidad (Ext)',
+  year: 'Año', month: 'Mes', area: 'Área',
   type: 'Tipo', auditor: 'Inspector', programmer: 'Programador'
 };
