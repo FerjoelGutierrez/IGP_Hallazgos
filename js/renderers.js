@@ -313,31 +313,36 @@ async function renderAssignment() {
   const savedAssignments = await loadAssignments(currentAssignYear);
   assignmentData = {};
 
-  // Poner las auto-generadas del Excel
+  // Primero, cargar TODO lo que viene del Excel (lo más fresco)
   Object.keys(autoAssignments).forEach(key => {
-    assignmentData[key] = autoAssignments[key];
+    assignmentData[key] = { ...autoAssignments[key] };
   });
 
-  // Las guardadas sobreescriben (si el usuario las editó manualmente)
+  // Segundo, aplicar lo guardado, pero NO sobreescribir con vacíos si el Excel tiene datos
   savedAssignments.forEach(a => {
     const key = `${a.inspector}_${a.mes}`;
-    if (a.igp_tema || a.igp_area) {
-      assignmentData[key] = {
-        igp_tema: a.igp_tema || '',
-        igp_depto: a.igp_area || ''
-      };
-    }
+    const auto = autoAssignments[key] || { igp_tema: '', igp_depto: '' };
+
+    // Lógica inteligente: Si lo guardado tiene datos, se usa. 
+    // Si lo guardado NO tiene departamento pero el Excel SÍ, usamos el del Excel.
+    assignmentData[key] = {
+      igp_tema: a.igp_tema || auto.igp_tema,
+      igp_depto: a.igp_area || auto.igp_depto
+    };
   });
 
-  // 3. Auto-guardar las asignaciones del Excel para que persistan
+  // 3. Auto-guardar/Actualizar: Si el Excel trajo datos nuevos que no estaban en la BD o estaban incompletos
   for (const key of Object.keys(autoAssignments)) {
-    const savedKey = savedAssignments.find(s => `${s.inspector}_${s.mes}` === key);
-    if (!savedKey) {
+    const saved = savedAssignments.find(s => `${s.inspector}_${s.mes}` === key);
+    const auto = autoAssignments[key];
+
+    // Si no existe en la BD O si en la BD le falta el departamento pero el Excel lo tiene -> Actualizar
+    if (!saved || (!saved.igp_area && auto.igp_depto)) {
       const [inspector, mesStr] = key.split(/_(\d+)$/);
       const mes = parseInt(mesStr);
       if (inspector && mes) {
-        saveAssignment(inspector, currentAssignYear, mes,
-          autoAssignments[key].igp_tema, autoAssignments[key].igp_depto);
+        saveAssignment(inspector, currentAssignYear, mes, 
+          assignmentData[key].igp_tema, assignmentData[key].igp_depto);
       }
     }
   }
