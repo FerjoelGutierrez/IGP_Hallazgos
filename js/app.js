@@ -132,7 +132,6 @@ function handleFiles(files) {
       
       document.getElementById('welcome-screen').style.display = 'none';
       initDashboard();
-      initUI(); // Re-vincula eventos si es necesario
       updateDashboard();
       alert(`✅ Se cargaron/actualizaron ${incomingRecords.length} registros exitosamente.`);
     };
@@ -153,7 +152,7 @@ function initDashboard() {
       if (d instanceof Date) return MONTH_NAMES[d.getMonth() + 1];
       return (typeof d === 'string' && d.length >= 7) ? MONTH_NAMES[parseInt(d.substring(5, 7))] : null;
     }))].filter(Boolean).sort((a, b) => MONTH_NAMES.indexOf(a) - MONTH_NAMES.indexOf(b)),
-    area: [...new Set(rawData.map(r => getPlantFromAuditor(r["Auditor Asignado"])))].filter(Boolean).sort(),
+    area: [...new Set(rawData.map(r => r["Área"]))].filter(Boolean).sort(),
     type: [...new Set(rawData.map(r => r["Tipo de Auditoría"]))].filter(Boolean).sort(),
     auditor: [...new Set(rawData.map(r => r["Auditor Asignado"]))].filter(Boolean).sort(),
     programmer: [...new Set(rawData.map(r => r["Programador"]))].filter(Boolean).sort()
