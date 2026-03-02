@@ -187,8 +187,17 @@ function renderPlantReport(data) {
     const eCount = activeAuds.filter(a => audStats[a] === 'E').length;
     const compliance = (eCount / activeAuds.length) * 100;
 
-    // Solo mostrar columna Área para Planta Exteriores (Andrés Mena)
-    const showArea = (plant === "Planta Exteriores");
+    // 1. Obtener sub-áreas únicas para el filtro local de Exteriores
+    let subAreaFilterHTML = '';
+    if (showArea) {
+      const subAreas = [...new Set(activeAuds.map(a => AUDITOR_AREA[a] || 'N/D'))].sort();
+      subAreaFilterHTML = `
+        <select class="btn btn-secondary btn-sm" style="font-size:11px; margin-right:8px;" 
+                onchange="filterPlantTable(this, '${plant.replace(/\s/g, '')}')">
+          <option value="all">Todas las Áreas</option>
+          ${subAreas.map(sa => `<option value="${sa}">${sa}</option>`).join('')}
+        </select>`;
+    }
 
     const card = document.createElement('div');
     card.className = 'card';
@@ -200,12 +209,15 @@ function renderPlantReport(data) {
             Programador: <b>${programmersName}</b> · Cumplimiento: ${compliance.toFixed(1)}%
           </div>
         </div>
-        <button class="btn btn-secondary btn-sm" onclick="exportPlantPDF('${plant}')">
-          <i class="fas fa-file-pdf"></i> PDF
-        </button>
+        <div style="display:flex; align-items:center;">
+          ${subAreaFilterHTML}
+          <button class="btn btn-secondary btn-sm" onclick="exportPlantPDF('${plant}')">
+            <i class="fas fa-file-pdf"></i> PDF
+          </button>
+        </div>
       </div>
-      <div class="table-container" id="table-plant-${plant.replace(/\s/g, '')}">
-        <table>
+      <div class="table-container">
+        <table id="table-plant-${plant.replace(/\s/g, '')}">
           <thead><tr>
             <th style="text-align:left;">Inspector</th>
             ${showArea ? '<th>Área</th>' : ''}
@@ -213,8 +225,9 @@ function renderPlantReport(data) {
           </tr></thead>
           <tbody>
             ${activeAuds.map(a => {
-              // Construir badges por tipo
               const tc = audTypeCounts[a] || { igp: 0, hallazgo: 0 };
+              const area = AUDITOR_AREA[a] || 'N/D';
+              
               let badges = '';
               if (tc.igp > 1) {
                 badges += `<span style="font-size:9px;color:#F59E0B;margin-left:4px;font-weight:bold;">
@@ -225,9 +238,10 @@ function renderPlantReport(data) {
                   <i class="fas fa-flag"></i> ${tc.hallazgo} Hallazgo${tc.hallazgo > 1 ? 's' : ''}</span>`;
               }
               const areaCell = showArea
-                ? `<td><span style="background:#E0F2FE;color:#0369A1;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;">${AUDITOR_AREA[a] || 'N/D'}</span></td>`
+                ? `<td><span style="background:#E0F2FE;color:#0369A1;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;">${area}</span></td>`
                 : '';
-              return `<tr><td style="text-align:left;">${a} ${badges}</td>
+              
+              return `<tr data-subarea="${area}"><td style="text-align:left;">${a} ${badges}</td>
                 ${areaCell}
                 <td><span class="status-pill ${audStats[a].toLowerCase()}">${audStats[a]}</span></td></tr>`;
             }).join('')}
@@ -235,6 +249,18 @@ function renderPlantReport(data) {
         </table>
       </div>`;
     container.appendChild(card);
+  });
+}
+
+function filterPlantTable(select, tableId) {
+  const val = select.value;
+  const rows = document.querySelectorAll(`#table-plant-${tableId} tbody tr`);
+  rows.forEach(r => {
+    if (val === 'all' || r.getAttribute('data-subarea') === val) {
+      r.style.display = '';
+    } else {
+      r.style.display = 'none';
+    }
   });
 }
 
