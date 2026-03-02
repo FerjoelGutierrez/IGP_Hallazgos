@@ -63,7 +63,8 @@ async function saveRecordsToSupabase(records) {
       tipo_auditoria: r["Tipo de Auditoría"] || null,
       estado: r["Estado"] || 'Pendiente',
       observaciones: r["Observaciones"] || '',
-      planta: getPlantFromAuditor(r["Auditor Asignado"])
+      planta: getPlantFromAuditor(r["Auditor Asignado"]),
+      departamento: r["Departamento"] || null
     }));
 
     // Insertar en lotes de 500

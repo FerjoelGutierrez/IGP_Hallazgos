@@ -90,8 +90,20 @@ function handleFiles(files) {
           const key = getCompositeKey(r);
           const saved = savedEdits[key];
 
+          // NORMALIZAR DEPARTAMENTO (Busca variaciones en los nombres de las columnas)
+          let deptoValue = r["Departamento"] || '';
+          if (!deptoValue) {
+            const keys = Object.keys(r);
+            const deptoKey = keys.find(k => {
+              const lk = k.toLowerCase().trim();
+              return lk.includes('depto') || lk.includes('departamento') || lk.includes('área de trabajo');
+            });
+            if (deptoKey) deptoValue = r[deptoKey] || '';
+          }
+
           return {
             ...r,
+            "Departamento": deptoValue, // Propiedad normalizada
             "Programador": computedProgrammer,
             "Estado": saved ? saved.Estado : r["Estado"],
             "Observaciones": saved ? saved.Observaciones : (r['Observaciones'] || '')
