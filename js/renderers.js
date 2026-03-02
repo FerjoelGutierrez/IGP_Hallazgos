@@ -32,7 +32,11 @@ function renderCharts(data) {
     const s = getShortStatus(r["Estado"]);
     if (s === 'E') cE++; else if (s === 'P') cP++; else if (s === 'EP') cEP++;
 
-    const m = parseInt(r["Fecha de Creación"]?.substring(5, 7));
+    const d = r["Fecha de Creación"];
+    let m = 0;
+    if (d instanceof Date) m = d.getMonth() + 1;
+    else if (typeof d === 'string' && d.length >= 7) m = parseInt(d.substring(5, 7));
+
     if (m) {
       if (s === 'E') mData.E[m - 1]++;
       if (s === 'P') mData.P[m - 1]++;
@@ -111,7 +115,11 @@ function renderMatrix(data) {
   data.forEach(r => {
     const a = r["Auditor Asignado"];
     if (a) {
-      const m = parseInt(r["Fecha de Creación"]?.substring(5, 7));
+      const d = r["Fecha de Creación"];
+      let m = 0;
+      if (d instanceof Date) m = d.getMonth() + 1;
+      else if (typeof d === 'string' && d.length >= 7) m = parseInt(d.substring(5, 7));
+
       if (m) {
         if (!auds[a]) auds[a] = {};
         auds[a][m] = getShortStatus(r["Estado"]);
@@ -247,31 +255,50 @@ async function renderAssignment() {
   const autoAssignments = {};
   if (typeof rawData !== 'undefined' && rawData.length > 0) {
     rawData.forEach(r => {
-      const tipo = r["Tipo de Auditoría"] || '';
+      const tipo = (r["Tipo de Auditoría"] || '').trim();
       // SOLO incluir registros que empiezan con "IGP"
       if (!isIGPType(tipo)) return;
 
       const fecha = r["Fecha de Creación"] || '';
-      if (fecha.length < 7) return;
-      const year = parseInt(fecha.substring(0, 4));
-      if (year !== currentAssignYear) return;
-      const mes = parseInt(fecha.substring(5, 7));
+      let mes = 0;
+      let year = 0;
+
+      // Manejar diferentes formatos de fecha (String o Date objeto)
+      if (fecha instanceof Date) {
+        mes = fecha.getMonth() + 1;
+        year = fecha.getFullYear();
+      } else if (typeof fecha === 'string' && fecha.length >= 7) {
+        year = parseInt(fecha.substring(0, 4));
+        mes = parseInt(fecha.substring(5, 7));
+      } else if (typeof fecha === 'number') {
+        // Excel date number format fallback (aproximado si no viene como Date)
+        const d = new Date((fecha - 25569) * 86400 * 1000);
+        mes = d.getMonth() + 1;
+        year = d.getFullYear();
+      }
+
+      if (year !== currentAssignYear || mes === 0) return;
+      
       const inspector = r["Auditor Asignado"] || '';
       if (!inspector) return;
 
       const key = `${inspector}_${mes}`;
-      // Buscar Departamento con variaciones de nombre de columna
+      
+      // Búsqueda exhaustiva del departamento
       let depto = r["Departamento"] || '';
       if (!depto) {
-        // Intentar variaciones del nombre de columna del Excel
         const keys = Object.keys(r);
-        const deptoKey = keys.find(k => k.toLowerCase().startsWith('departam'));
+        const deptoKey = keys.find(k => {
+          const lowerK = k.toLowerCase();
+          return lowerK.includes('depto') || lowerK.includes('departamento') || lowerK.includes('área de trabajo');
+        });
         if (deptoKey) depto = r[deptoKey] || '';
       }
 
       if (!autoAssignments[key]) {
         autoAssignments[key] = { igp_tema: tipo, igp_depto: depto };
       } else {
+        // Evitar duplicados exactos en la misma celda
         if (tipo && !autoAssignments[key].igp_tema.includes(tipo)) {
           autoAssignments[key].igp_tema += '\n' + tipo;
         }
@@ -474,7 +501,11 @@ function renderDetails(data) {
 function renderAnalysis(data) {
   const mStats = {};
   data.forEach(r => {
-    const m = parseInt(r["Fecha de Creación"]?.substring(5, 7));
+    const d = r["Fecha de Creación"];
+    let m = 0;
+    if (d instanceof Date) m = d.getMonth() + 1;
+    else if (typeof d === 'string' && d.length >= 7) m = parseInt(d.substring(5, 7));
+
     if (m) {
       if (!mStats[m]) mStats[m] = { e: 0, t: 0 };
       mStats[m].t++;

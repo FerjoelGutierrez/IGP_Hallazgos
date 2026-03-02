@@ -70,7 +70,7 @@ function handleFiles(files) {
   if (files.length > 0) {
     const reader = new FileReader();
     reader.onload = async (evt) => {
-      const workbook = XLSX.read(evt.target.result, { type: 'array' });
+      const workbook = XLSX.read(evt.target.result, { type: 'array', cellDates: true });
       const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
       const savedEdits = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
 
@@ -79,38 +79,55 @@ function handleFiles(files) {
         console.log('📋 Columnas del Excel:', Object.keys(json[0]));
       }
 
-      const newRecords = json
+      const incomingRecords = json
         .filter(r => {
           const audName = r["Auditor Asignado"] || "";
           return !BLOCKED_AUDITORS_SET.has(audName.toLowerCase().trim());
         })
-        .map((r, i) => {
-          const key = getCompositeKey(r);
-          const saved = savedEdits[key];
+        .map((r) => {
           const auditor = r["Auditor Asignado"] || '';
           const computedProgrammer = r["Programador"] || getProgrammerFromAuditor(auditor);
+          const key = getCompositeKey(r);
+          const saved = savedEdits[key];
 
           return {
             ...r,
-            _id: i,
             "Programador": computedProgrammer,
             "Estado": saved ? saved.Estado : r["Estado"],
             "Observaciones": saved ? saved.Observaciones : (r['Observaciones'] || '')
           };
         });
 
-      // Guardar en Supabase en segundo plano
-      saveRecordsToSupabase(newRecords).then(ok => {
-        if (ok) console.log('✅ Sincronizado con Supabase');
+      // --- LÓGICA DE ACUMULACIÓN (MERGE) ---
+      // Creamos un mapa de los registros existentes por su clave única
+      const existingMap = new Map();
+      rawData.forEach(r => existingMap.set(getCompositeKey(r), r));
+
+      incomingRecords.forEach(nr => {
+        const key = getCompositeKey(nr);
+        if (existingMap.has(key)) {
+          // Si ya existe, actualizamos los datos básicos pero mantenemos el estado/obs que ya teníamos
+          // (Opcional: podrías decidir que el Excel mande sobre el estado si no hay edición guardada)
+          const old = existingMap.get(key);
+          existingMap.set(key, { ...old, ...nr, "Estado": old.Estado, "Observaciones": old.Observaciones });
+        } else {
+          // Si es nuevo, lo agregamos
+          existingMap.set(key, nr);
+        }
       });
 
-      // Usar datos del Excel directamente (tiene TODOS los campos: Departamento, etc.)
-      rawData = newRecords;
+      // Convertimos el mapa de vuelta a array y re-asignamos IDs internos
+      rawData = Array.from(existingMap.values()).map((r, idx) => ({ ...r, _id: idx }));
+
+      // Guardar en Supabase en segundo plano (saveRecordsToSupabase ya maneja duplicados en BD)
+      saveRecordsToSupabase(incomingRecords).then(ok => {
+        if (ok) console.log('✅ Sincronizado con Supabase');
+      });
 
       document.getElementById('welcome-screen').classList.add('hidden');
       setTimeout(() => document.getElementById('welcome-screen').style.display = 'none', 500);
 
-      // Guardar en localStorage (preserva TODOS los campos incluyendo Departamento)
+      // Guardar en localStorage acumulado
       localStorage.setItem(STORAGE_DATA_KEY, JSON.stringify(rawData));
       initDashboard();
     };
@@ -121,10 +138,15 @@ function handleFiles(files) {
 // --- INIT DASHBOARD ---
 function initDashboard() {
   const opts = {
-    year: [...new Set(rawData.map(r => r["Fecha de Creación"]?.substring(0, 4)))].filter(Boolean).sort(),
+    year: [...new Set(rawData.map(r => {
+      const d = r["Fecha de Creación"];
+      if (d instanceof Date) return d.getFullYear().toString();
+      return typeof d === 'string' ? d.substring(0, 4) : null;
+    }))].filter(Boolean).sort(),
     month: [...new Set(rawData.map(r => {
       const d = r["Fecha de Creación"];
-      return d?.length >= 7 ? MONTH_NAMES[parseInt(d.substring(5, 7))] : null;
+      if (d instanceof Date) return MONTH_NAMES[d.getMonth() + 1];
+      return (typeof d === 'string' && d.length >= 7) ? MONTH_NAMES[parseInt(d.substring(5, 7))] : null;
     }))].filter(Boolean).sort((a, b) => MONTH_NAMES.indexOf(a) - MONTH_NAMES.indexOf(b)),
     area: [...new Set(rawData.map(r => r["Área"]))].filter(Boolean).sort(),
     type: [...new Set(rawData.map(r => r["Tipo de Auditoría"]))].filter(Boolean).sort(),
@@ -194,10 +216,19 @@ function updateDashboard() {
   });
 
   filteredData = rawData.filter(r => {
-    const d = r["Fecha de Creación"] || "";
-    if (d.length < 7) return false;
-    const y = d.substring(0, 4);
-    const m = MONTH_NAMES[parseInt(d.substring(5, 7))];
+    const d = r["Fecha de Creación"];
+    if (!d) return false;
+    
+    let y = "";
+    let m = "";
+    if (d instanceof Date) {
+      y = d.getFullYear().toString();
+      m = MONTH_NAMES[d.getMonth() + 1];
+    } else if (typeof d === 'string' && d.length >= 7) {
+      y = d.substring(0, 4);
+      m = MONTH_NAMES[parseInt(d.substring(5, 7))];
+    }
+
     if (filters.year.length && !filters.year.includes(y)) return false;
     if (filters.month.length && !filters.month.includes(m)) return false;
     if (filters.area.length && !filters.area.includes(r["Área"])) return false;
@@ -482,22 +513,94 @@ function generateHistoryReport() {
   const m = document.getElementById('hist-month').value;
   const y = document.getElementById('hist-year').value;
 
-  const histData = rawData.filter(r =>
-    r["Fecha de Creación"]
-    && r["Fecha de Creación"].includes(y)
-    && MONTH_NAMES[parseInt(r["Fecha de Creación"].substring(5, 7))] === m
-  );
+  if (!m) return alert("Por favor seleccione un mes");
 
-  if (histData.length === 0) return alert("No hay datos");
+  const histData = rawData.filter(r => {
+    const d = r["Fecha de Creación"];
+    if (!d) return false;
+    
+    let mes = "";
+    let year = "";
 
-  const doc = new jspdf.jsPDF('l');
-  doc.text(`Reporte Histórico IGP - ${m} ${y}`, 14, 15);
-  doc.autoTable({
-    head: [['Inspector', 'Programador', 'Área', 'Estado', 'Obs']],
-    body: histData.map(r => [r["Auditor Asignado"], r["Programador"], r["Área"], r["Estado"], r["Observaciones"]]),
-    startY: 25, theme: 'grid'
+    if (d instanceof Date) {
+      mes = MONTH_NAMES[d.getMonth() + 1];
+      year = d.getFullYear().toString();
+    } else if (typeof d === 'string' && d.length >= 7) {
+      year = d.substring(0, 4);
+      mes = MONTH_NAMES[parseInt(d.substring(5, 7))];
+    }
+
+    return year === y && mes === m;
   });
-  doc.save(`IGP_${m}_${y}.pdf`);
+
+  if (histData.length === 0) return alert(`No se encontraron datos para ${m} ${y}`);
+
+  const doc = new jspdf.jsPDF('l', 'mm', 'a4');
+  
+  // Header
+  doc.setFontSize(18);
+  doc.setTextColor(15, 23, 42); // Navy Blue
+  doc.text(`REPORTE DETALLADO IGP - ${m.toUpperCase()} ${y}`, 14, 20);
+  
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.text(`Generado el: ${new Date().toLocaleString()}`, 14, 28);
+  doc.text(`Total de registros: ${histData.length}`, 14, 33);
+
+  // Table
+  const columns = [
+    { header: 'Inspector', dataKey: 'auditor' },
+    { header: 'Área/Planta', dataKey: 'planta' },
+    { header: 'Departamento', dataKey: 'depto' },
+    { header: 'Tipo de Auditoría', dataKey: 'tipo' },
+    { header: 'Unidad', dataKey: 'unidad' },
+    { header: 'Fecha', dataKey: 'fecha' },
+    { header: 'Estado', dataKey: 'estado' },
+    { header: 'Observaciones', dataKey: 'obs' }
+  ];
+
+  const body = histData.map(r => {
+    let depto = r["Departamento"] || '';
+    if (!depto) {
+      const deptoKey = Object.keys(r).find(k => k.toLowerCase().includes('depto') || k.toLowerCase().includes('departamento'));
+      if (deptoKey) depto = r[deptoKey] || '';
+    }
+
+    return {
+      auditor: r["Auditor Asignado"] || 'N/D',
+      planta: getPlantFromAuditor(r["Auditor Asignado"]),
+      depto: depto,
+      tipo: r["Tipo de Auditoría"] || 'N/D',
+      unidad: r["Unidad"] || '',
+      fecha: r["Fecha de Creación"] instanceof Date ? r["Fecha de Creación"].toLocaleDateString() : (r["Fecha de Creación"] || ''),
+      estado: r["Estado"] || 'Pendiente',
+      obs: r["Observaciones"] || ''
+    };
+  });
+
+  doc.autoTable({
+    columns: columns,
+    body: body,
+    startY: 40,
+    theme: 'grid',
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 10, fontStyle: 'bold' },
+    bodyStyles: { fontSize: 9 },
+    columnStyles: {
+      obs: { cellWidth: 40 },
+      tipo: { cellWidth: 40 },
+      auditor: { cellWidth: 35 }
+    },
+    didParseCell: (data) => {
+      if (data.column.dataKey === 'estado' && data.section === 'body') {
+        const s = getShortStatus(data.cell.raw);
+        if (s === 'E') { data.cell.styles.textColor = [16, 185, 129]; data.cell.styles.fontStyle = 'bold'; }
+        if (s === 'P') { data.cell.styles.textColor = [239, 68, 68]; data.cell.styles.fontStyle = 'bold'; }
+        if (s === 'EP') { data.cell.styles.textColor = [245, 158, 11]; data.cell.styles.fontStyle = 'bold'; }
+      }
+    }
+  });
+
+  doc.save(`Reporte_Detallado_IGP_${m}_${y}.pdf`);
 }
 
 async function clearSavedData() {
