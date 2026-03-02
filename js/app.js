@@ -72,96 +72,69 @@ function handleFiles(files) {
     reader.onload = async (evt) => {
       const workbook = XLSX.read(evt.target.result, { type: 'array', cellDates: true });
       
-      // --- LEER TODAS LAS HOJAS ---
-      let allJson = [];
-      workbook.SheetNames.forEach(sheetName => {
-        const sheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(sheet);
-        if (json.length > 0) {
-          console.log(`📄 Hoja detectada: ${sheetName} (${json.length} filas)`);
-          allJson = allJson.concat(json);
-        }
+      let allRows = [];
+      workbook.SheetNames.forEach(name => {
+        const sheetRows = XLSX.utils.sheet_to_json(workbook.Sheets[name]);
+        if (sheetRows.length > 0) allRows = allRows.concat(sheetRows);
       });
 
-      if (allJson.length === 0) return alert("El archivo está vacío");
+      if (allRows.length === 0) return alert("El archivo no tiene datos válidos");
 
-      const savedEdits = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-
-      const incomingRecords = allJson
+      const incomingRecords = allRows
         .filter(r => {
-          const audName = (r["Auditor Asignado"] || "").toString().toLowerCase().trim();
-          return audName && !BLOCKED_AUDITORS_SET.has(audName);
+          const a = (r["Auditor Asignado"] || "").toString().toLowerCase().trim();
+          return a && !BLOCKED_AUDITORS_SET.has(a);
         })
-        .map((r) => {
-          const auditor = (r["Auditor Asignado"] || '').toString().trim();
-          const computedProgrammer = r["Programador"] || getProgrammerFromAuditor(auditor);
+        .map(r => {
+          // Normalización básica
+          const auditor = (r["Auditor Asignado"] || "").toString().trim();
+          const area = (r["Área"] || "").toString().trim();
+          const unidad = (r["Unidad"] || "").toString().trim();
+          const tipo = (r["Tipo de Auditoría"] || "").toString().trim();
           
-          // NORMALIZAR DEPARTAMENTO
-          let deptoValue = r["Departamento"] || '';
-          if (!deptoValue) {
+          let depto = r["Departamento"] || '';
+          if (!depto) {
             const keys = Object.keys(r);
-            const deptoKey = keys.find(k => {
-              const lk = k.toString().toLowerCase().trim();
-              return lk.includes('depto') || lk.includes('departamento') || lk.includes('área de trabajo') || lk.includes('ubicación');
-            });
-            if (deptoKey) deptoValue = r[deptoKey] || '';
+            const dk = keys.find(k => k.toLowerCase().includes('depto') || k.toLowerCase().includes('departamento') || k.toLowerCase().includes('ubicación'));
+            if (dk) depto = r[dk] || '';
           }
 
           return {
             ...r,
             "Auditor Asignado": auditor,
-            "Departamento": (deptoValue || '').toString().trim(),
-            "Programador": computedProgrammer,
+            "Área": area,
+            "Unidad": unidad,
+            "Departamento": depto.toString().trim(),
+            "Tipo de Auditoría": tipo,
             "Estado": r["Estado"] || 'Pendiente',
-            "Observaciones": r['Observaciones'] || ''
+            "Observaciones": r["Observaciones"] || '',
+            "Programador": r["Programador"] || getProgrammerFromAuditor(auditor)
           };
         });
 
-      // --- LÓGICA DE FUSIÓN (MERGE) CON NORMALIZACIÓN ---
-      if (!Array.isArray(rawData)) rawData = [];
-      const existingMap = new Map();
-      rawData.forEach(r => {
-        if (!r) return;
-        const key = getCompositeKey(r);
-        existingMap.set(key, r);
-      });
+      // --- ACUMULACIÓN SIMPLE ---
+      const map = new Map();
+      // Primero cargamos lo existente
+      rawData.forEach(r => map.set(getCompositeKey(r), r));
+      // Luego agregamos/actualizamos con lo nuevo
+      incomingRecords.forEach(r => map.set(getCompositeKey(r), r));
+      
+      rawData = Array.from(map.values()).map((r, i) => ({ ...r, _id: i }));
 
-      incomingRecords.forEach(nr => {
-        const key = getCompositeKey(nr);
-        const saved = savedEdits[key];
-
-        if (existingMap.has(key)) {
-          const old = existingMap.get(key);
-          // Actualizar datos pero mantener Estado/Obs si ya fueron editados localmente o guardados
-          const finalState = saved ? saved.Estado : (old.Estado || nr.Estado);
-          const finalObs = saved ? saved.Observaciones : (old.Observaciones || nr.Observaciones);
-          
-          existingMap.set(key, { 
-            ...old, 
-            ...nr, 
-            "Estado": finalState, 
-            "Observaciones": finalObs 
-          });
-        } else {
-          // Registro nuevo
-          if (saved) {
-            nr["Estado"] = saved.Estado;
-            nr["Observaciones"] = saved.Observaciones;
-          }
-          existingMap.set(key, nr);
-        }
-      });
-
-      rawData = Array.from(existingMap.values()).map((r, idx) => ({ ...r, _id: idx }));
-
-      // Sincronizar en Supabase
+      // Guardar localStorage
+      localStorage.setItem(STORAGE_DATA_KEY, JSON.stringify(rawData));
+      
+      // Sincronizar (en segundo plano)
       saveRecordsToSupabase(incomingRecords);
 
-      document.getElementById('welcome-screen').classList.add('hidden');
-      setTimeout(() => document.getElementById('welcome-screen').style.display = 'none', 500);
-
-      localStorage.setItem(STORAGE_DATA_KEY, JSON.stringify(rawData));
+      // --- LIMPIEZA DE FILTROS PARA MOSTRAR DATOS ---
+      document.querySelectorAll('.filter-dropdown input[type="checkbox"]').forEach(cb => cb.checked = false);
+      
+      document.getElementById('welcome-screen').style.display = 'none';
       initDashboard();
+      initUI(); // Re-vincula eventos si es necesario
+      updateDashboard();
+      alert(`✅ Se cargaron/actualizaron ${incomingRecords.length} registros exitosamente.`);
     };
     reader.readAsArrayBuffer(files[0]);
   }
