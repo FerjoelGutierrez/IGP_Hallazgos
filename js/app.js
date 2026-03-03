@@ -745,6 +745,11 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // 3. Mostrar dashboard o welcome screen
   if (dataLoaded && rawData.length > 0) {
+    // Re-aplicar programador desde config actual (por si se agregaron inspectores nuevos)
+    rawData.forEach(r => {
+      const configProg = getProgrammerFromAuditor(r["Auditor Asignado"] || '');
+      if (configProg !== 'N/D') r["Programador"] = configProg;
+    });
     welcomeScreen.classList.add('hidden');
     setTimeout(() => { welcomeScreen.style.display = 'none'; }, 500);
     initDashboard();
