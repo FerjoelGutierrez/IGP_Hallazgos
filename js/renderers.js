@@ -650,3 +650,105 @@ function renderIGPTypeAnalysis(data) {
   h += `</tbody></table>`;
   container.innerHTML = h;
 }
+
+function renderPuntajeAnalysis(data) {
+  const container = document.getElementById('table-analysis-puntaje');
+  if (!container) return;
+
+  // Parsear puntaje de cada registro
+  function parsePuntaje(val) {
+    if (!val) return null;
+    const s = val.toString().replace('%', '').replace(',', '.').trim();
+    const n = parseFloat(s);
+    return isNaN(n) ? null : n;
+  }
+
+  // --- Tabla 1: Promedio por Tipo de Auditoría ---
+  const tipoStats = {};
+  data.forEach(r => {
+    const tipo = (r["Tipo de Auditoría"] || '').trim();
+    if (!tipo) return;
+    const p = parsePuntaje(r["Puntaje"]);
+    if (!tipoStats[tipo]) tipoStats[tipo] = { sum: 0, count: 0, total: 0 };
+    tipoStats[tipo].total++;
+    if (p !== null && p > 0) {
+      tipoStats[tipo].sum += p;
+      tipoStats[tipo].count++;
+    }
+  });
+
+  const tipoSorted = Object.entries(tipoStats)
+    .filter(([, v]) => v.count > 0)
+    .sort((a, b) => (a[1].sum / a[1].count) - (b[1].sum / b[1].count));
+
+  let h1 = `<table><thead><tr>
+    <th style="text-align:left;">Tipo de Auditoría</th>
+    <th>Evaluados</th><th>Total</th>
+    <th>Puntaje Promedio</th><th style="min-width:120px;">Nivel</th>
+  </tr></thead><tbody>`;
+
+  tipoSorted.forEach(([tipo, v]) => {
+    const avg = v.count ? (v.sum / v.count) : 0;
+    const barColor = avg >= 80 ? '#10B981' : avg >= 50 ? '#F59E0B' : '#EF4444';
+    h1 += `<tr>
+      <td style="text-align:left;font-weight:600;font-size:13px;">${tipo}</td>
+      <td>${v.count}</td><td>${v.total}</td>
+      <td style="font-weight:800;color:${barColor};">${avg.toFixed(1)}%</td>
+      <td><div style="background:#E5E7EB;border-radius:8px;height:10px;overflow:hidden;">
+        <div style="background:${barColor};height:100%;width:${Math.min(avg, 100)}%;border-radius:8px;transition:width 0.5s;"></div>
+      </div></td>
+    </tr>`;
+  });
+  h1 += `</tbody></table>`;
+
+  // --- Tabla 2: Promedio por Inspector ---
+  const inspStats = {};
+  data.forEach(r => {
+    const insp = (r["Auditor Asignado"] || '').trim();
+    if (!insp) return;
+    const p = parsePuntaje(r["Puntaje"]);
+    if (!inspStats[insp]) inspStats[insp] = { sum: 0, count: 0, total: 0 };
+    inspStats[insp].total++;
+    if (p !== null && p > 0) {
+      inspStats[insp].sum += p;
+      inspStats[insp].count++;
+    }
+  });
+
+  const inspSorted = Object.entries(inspStats)
+    .filter(([, v]) => v.count > 0)
+    .sort((a, b) => (a[1].sum / a[1].count) - (b[1].sum / b[1].count));
+
+  let h2 = '';
+  if (inspSorted.length > 0) {
+    h2 = `<div style="margin-top:24px;"><h4 style="margin:0 0 12px 0;color:var(--primary-color);font-size:15px;">
+      <i class="fas fa-user-chart" style="color:var(--accent-color);margin-right:6px;"></i>Puntaje Promedio por Inspector</h4>
+    <div class="table-container"><table><thead><tr>
+      <th style="text-align:left;">Inspector</th><th>Planta</th>
+      <th>Evaluados</th><th>Puntaje Promedio</th><th style="min-width:120px;">Nivel</th>
+    </tr></thead><tbody>`;
+
+    inspSorted.forEach(([insp, v]) => {
+      const avg = v.count ? (v.sum / v.count) : 0;
+      const barColor = avg >= 80 ? '#10B981' : avg >= 50 ? '#F59E0B' : '#EF4444';
+      const planta = getPlantFromAuditor(insp);
+      h2 += `<tr>
+        <td style="text-align:left;font-weight:600;">${insp}</td>
+        <td>${planta}</td>
+        <td>${v.count}</td>
+        <td style="font-weight:800;color:${barColor};">${avg.toFixed(1)}%</td>
+        <td><div style="background:#E5E7EB;border-radius:8px;height:10px;overflow:hidden;">
+          <div style="background:${barColor};height:100%;width:${Math.min(avg, 100)}%;border-radius:8px;transition:width 0.5s;"></div>
+        </div></td>
+      </tr>`;
+    });
+    h2 += `</tbody></table></div></div>`;
+  }
+
+  if (tipoSorted.length === 0 && inspSorted.length === 0) {
+    container.innerHTML = '<p style="color:var(--text-secondary);padding:20px;text-align:center;">No hay datos de puntaje disponibles. Sube un Excel con la columna "Puntaje".</p>';
+    return;
+  }
+
+  container.innerHTML = h1 + h2;
+}

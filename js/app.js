@@ -250,6 +250,7 @@ function updateDashboard() {
   renderAssignment(); // async, loads its own data from Supabase
   renderAnalysis(filteredData);
   renderIGPTypeAnalysis(filteredData);
+  renderPuntajeAnalysis(filteredData);
   generateDynamicAnalysis(filteredData);
 }
 
