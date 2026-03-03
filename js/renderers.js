@@ -153,14 +153,13 @@ function renderPlantReport(data) {
     const plantData = data.filter(r => auditors.includes(r["Auditor Asignado"]));
     if (plantData.length === 0) return;
 
-    const audStats = {};
-    const audCounts = {};
-    const audTypeCounts = {}; // { auditor: { igp: N, hallazgo: N } }
+    const audRecordsMap = {}; // auditor -> [recs]
+    const audTypeCounts = {}; // auditor -> { igp: N, hallazgo: N }
 
     auditors.forEach(a => {
       const recs = plantData.filter(r => r["Auditor Asignado"] === a);
       if (recs.length > 0) {
-        audCounts[a] = recs.length;
+        audRecordsMap[a] = recs;
         // Contar por tipo
         let igpCount = 0, hallazgoCount = 0;
         recs.forEach(r => {
@@ -172,20 +171,22 @@ function renderPlantReport(data) {
           }
         });
         audTypeCounts[a] = { igp: igpCount, hallazgo: hallazgoCount };
-
-        let s = "ND";
-        if (recs.some(r => getShortStatus(r["Estado"]) === 'P')) s = 'P';
-        else if (recs.some(r => getShortStatus(r["Estado"]) === 'EP')) s = 'EP';
-        else if (recs.some(r => getShortStatus(r["Estado"]) === 'E')) s = 'E';
-        audStats[a] = s;
       }
     });
 
-    const activeAuds = Object.keys(audStats);
+    const activeAuds = Object.keys(audRecordsMap);
     if (activeAuds.length === 0) return;
 
-    const eCount = activeAuds.filter(a => audStats[a] === 'E').length;
-    const compliance = (eCount / activeAuds.length) * 100;
+    // Cumplimiento basado en ITEMS (Ejecutados / Total) - Más justo y preciso
+    let totalItems = 0;
+    let executedItems = 0;
+    activeAuds.forEach(a => {
+      audRecordsMap[a].forEach(r => {
+        totalItems++;
+        if (getShortStatus(r["Estado"]) === 'E') executedItems++;
+      });
+    });
+    const compliance = totalItems ? (executedItems / totalItems) * 100 : 0;
 
     const showArea = (plant === "Planta Exteriores");
 
@@ -232,6 +233,7 @@ function renderPlantReport(data) {
             ${activeAuds.map(a => {
               const tc = audTypeCounts[a] || { igp: 0, hallazgo: 0 };
               const area = AUDITOR_AREA[a] || 'N/D';
+              const recs = audRecordsMap[a];
               
               let badges = '';
               if (tc.igp > 1) {
@@ -246,9 +248,14 @@ function renderPlantReport(data) {
                 ? `<td><span style="background:#E0F2FE;color:#0369A1;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;">${area}</span></td>`
                 : '';
               
+              const statusPills = recs.map(r => {
+                const s = getShortStatus(r["Estado"]);
+                return `<span class="status-pill ${s.toLowerCase()}">${s}</span>`;
+              }).join(' ');
+              
               return `<tr data-subarea="${area}"><td style="text-align:left;">${a} ${badges}</td>
                 ${areaCell}
-                <td><span class="status-pill ${audStats[a].toLowerCase()}">${audStats[a]}</span></td></tr>`;
+                <td>${statusPills}</td></tr>`;
             }).join('')}
           </tbody>
         </table>

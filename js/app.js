@@ -298,10 +298,11 @@ function exportTableToPDF(id, title) {
     headStyles: { fillColor: [15, 23, 42] },
     didParseCell: (data) => {
       if (data.section === 'body') {
-        const t = data.cell.raw.innerText;
+        const t = (data.cell.raw.innerText || '').trim();
         if (t === 'E') { data.cell.styles.fillColor = [16, 185, 129]; data.cell.styles.textColor = 255; }
-        if (t === 'P') { data.cell.styles.fillColor = [239, 68, 68]; data.cell.styles.textColor = 255; }
-        if (t === 'EP') { data.cell.styles.fillColor = [245, 158, 11]; }
+        else if (t === 'P') { data.cell.styles.fillColor = [239, 68, 68]; data.cell.styles.textColor = 255; }
+        else if (t === 'EP') { data.cell.styles.fillColor = [245, 158, 11]; }
+        // Si hay múltiples estados (ej: "E P"), no aplicamos color de fondo para no confundir
       }
     }
   });
@@ -334,10 +335,10 @@ function exportAllPlantsPDF(selectedProgrammer) {
         headStyles: { fillColor: [15, 23, 42] },
         didParseCell: (d) => {
           if (d.section === 'body') {
-            const t = d.cell.raw.innerText;
+            const t = (d.cell.raw.innerText || '').trim();
             if (t === 'E') { d.cell.styles.fillColor = [16, 185, 129]; d.cell.styles.textColor = 255; }
-            if (t === 'P') { d.cell.styles.fillColor = [239, 68, 68]; d.cell.styles.textColor = 255; }
-            if (t === 'EP') { d.cell.styles.fillColor = [245, 158, 11]; }
+            else if (t === 'P') { d.cell.styles.fillColor = [239, 68, 68]; d.cell.styles.textColor = 255; }
+            else if (t === 'EP') { d.cell.styles.fillColor = [245, 158, 11]; }
           }
         }
       });
@@ -642,10 +643,10 @@ function generateHistoryReport() {
       },
       didParseCell: (d) => {
         if (d.column.index === 3 && d.section === 'body') {
-          const s = getShortStatus(d.cell.raw);
+          const s = getShortStatus((d.cell.raw.innerText || '').trim());
           if (s === 'E') { d.cell.styles.textColor = [16, 185, 129]; d.cell.styles.fontStyle = 'bold'; }
-          if (s === 'P') { d.cell.styles.textColor = [239, 68, 68]; d.cell.styles.fontStyle = 'bold'; }
-          if (s === 'EP') { d.cell.styles.textColor = [245, 158, 11]; d.cell.styles.fontStyle = 'bold'; }
+          else if (s === 'P') { d.cell.styles.textColor = [239, 68, 68]; d.cell.styles.fontStyle = 'bold'; }
+          else if (s === 'EP') { d.cell.styles.textColor = [245, 158, 11]; d.cell.styles.fontStyle = 'bold'; }
         }
       }
     });
