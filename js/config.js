@@ -32,7 +32,8 @@ const PLANT_GROUPS = {
     "Christian Fajardo", "Christian Oswaldo Tumalie Freire",
     "Gloria Estefania Montenegro Aquino", "Irma Rocio Pacheco Erazo",
     "Luis Enrique Moreno Muñoz", "Miriam Mancero", "Roberto Monserrate",
-    "Vanessa Del Rocio Jimenez Soto", "Victor Cevallos", "Carlos Reinoso"
+    "Vanessa Del Rocio Jimenez Soto", "Victor Cevallos", "Carlos Reinoso",
+    "Walter Ramirez"
   ],
   "Planta 2": [
     "Harol Espinoza", "Israel Pazmiño", "Junior Suárez",
