@@ -595,3 +595,58 @@ function generateDynamicAnalysis(data) {
     document.getElementById('analysis-plant').innerHTML = "Comparativa de carga y cumplimiento por planta según filtros activos.";
   }
 }
+
+function renderIGPTypeAnalysis(data) {
+  const container = document.getElementById('table-analysis-igptype');
+  if (!container) return;
+
+  // Agrupar por Tipo de Auditoría
+  const typeStats = {};
+  data.forEach(r => {
+    const tipo = (r["Tipo de Auditoría"] || '').trim();
+    if (!tipo) return;
+    if (!typeStats[tipo]) typeStats[tipo] = { e: 0, p: 0, ep: 0, t: 0 };
+    typeStats[tipo].t++;
+    const s = getShortStatus(r["Estado"]);
+    if (s === 'E') typeStats[tipo].e++;
+    else if (s === 'P') typeStats[tipo].p++;
+    else if (s === 'EP') typeStats[tipo].ep++;
+  });
+
+  // Ordenar de menor a mayor cumplimiento
+  const sorted = Object.entries(typeStats).sort((a, b) => {
+    const pctA = a[1].t ? (a[1].e / a[1].t) : 0;
+    const pctB = b[1].t ? (b[1].e / b[1].t) : 0;
+    return pctA - pctB;
+  });
+
+  if (sorted.length === 0) {
+    container.innerHTML = '<p style="color:var(--text-secondary);padding:20px;text-align:center;">No hay datos disponibles</p>';
+    return;
+  }
+
+  let h = `<table><thead><tr>
+    <th style="text-align:left;">Tipo de Auditoría</th>
+    <th>Total</th><th>Ejecutadas</th><th>Pendientes</th><th>En Proceso</th>
+    <th>% Cumplimiento</th><th style="min-width:120px;">Progreso</th>
+  </tr></thead><tbody>`;
+
+  sorted.forEach(([tipo, v]) => {
+    const pct = v.t ? ((v.e / v.t) * 100) : 0;
+    const barColor = pct >= 80 ? '#10B981' : pct >= 50 ? '#F59E0B' : '#EF4444';
+    h += `<tr>
+      <td style="text-align:left;font-weight:600;font-size:13px;">${tipo}</td>
+      <td>${v.t}</td>
+      <td style="color:#10B981;font-weight:700;">${v.e}</td>
+      <td style="color:#EF4444;font-weight:700;">${v.p}</td>
+      <td style="color:#F59E0B;font-weight:700;">${v.ep}</td>
+      <td style="font-weight:800;color:${barColor};">${pct.toFixed(1)}%</td>
+      <td><div style="background:#E5E7EB;border-radius:8px;height:10px;overflow:hidden;">
+        <div style="background:${barColor};height:100%;width:${pct}%;border-radius:8px;transition:width 0.5s;"></div>
+      </div></td>
+    </tr>`;
+  });
+
+  h += `</tbody></table>`;
+  container.innerHTML = h;
+}

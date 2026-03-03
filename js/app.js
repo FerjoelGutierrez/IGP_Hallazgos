@@ -249,6 +249,7 @@ function updateDashboard() {
   renderPlantReport(filteredData);
   renderAssignment(); // async, loads its own data from Supabase
   renderAnalysis(filteredData);
+  renderIGPTypeAnalysis(filteredData);
   generateDynamicAnalysis(filteredData);
 }
 
