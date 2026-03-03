@@ -250,7 +250,11 @@ function renderPlantReport(data) {
               
               const statusPills = recs.map(r => {
                 const s = getShortStatus(r["Estado"]);
-                return `<span class="status-pill ${s.toLowerCase()}">${s}</span>`;
+                const tipo = (r["Tipo de Auditoría"] || '').trim();
+                const isHallazgo = tipo.toLowerCase().includes('hallazgo') || tipo.toLowerCase().includes('acto') || tipo.toLowerCase().includes('subestandar') || tipo.toLowerCase().includes('subestándar');
+                const tipoLabel = isHallazgo ? 'H' : 'IGP';
+                const tooltip = `${tipo} — ${r["Estado"] || 'Pendiente'}`;
+                return `<span class="status-pill ${s.toLowerCase()}" title="${tooltip}" style="cursor:help;">${tipoLabel}:${s}</span>`;
               }).join(' ');
               
               return `<tr data-subarea="${area}"><td style="text-align:left;">${a} ${badges}</td>
