@@ -153,7 +153,6 @@ function renderPlantReport(data) {
     const plantData = data.filter(r => auditors.includes(r["Auditor Asignado"]));
     if (plantData.length === 0) return;
 
-    // Agrupar registros por auditor
     const audRecordsMap = {};
     auditors.forEach(a => {
       const recs = plantData.filter(r => r["Auditor Asignado"] === a);
@@ -163,7 +162,6 @@ function renderPlantReport(data) {
     const activeAuds = Object.keys(audRecordsMap);
     if (activeAuds.length === 0) return;
 
-    // Cumplimiento basado en items individuales
     let totalItems = 0, executedItems = 0;
     activeAuds.forEach(a => {
       audRecordsMap[a].forEach(r => {
@@ -176,7 +174,6 @@ function renderPlantReport(data) {
     const showArea = (plant === "Planta Exteriores");
     const plantId = plant.replace(/\s/g, '');
 
-    // Botones de sub-área (solo Exteriores)
     let subAreaFilterHTML = '';
     if (showArea) {
       const subAreas = [...new Set(activeAuds.map(a => AUDITOR_AREA[a] || 'N/D'))].sort();
@@ -191,45 +188,22 @@ function renderPlantReport(data) {
         </div>`;
     }
 
-    // Botones de filtro por tipo (IGP / Hallazgos) - para TODAS las plantas
-    const typeFilterHTML = `
-      <div class="type-buttons" style="display:flex; gap:6px; margin-right:12px;">
-        <button class="btn btn-secondary btn-sm active" data-typeval="all"
-                onclick="filterPlantByType(this, '${plantId}')">Todas</button>
-        <button class="btn btn-secondary btn-sm" data-typeval="igp"
-                onclick="filterPlantByType(this, '${plantId}')">IGP</button>
-        <button class="btn btn-secondary btn-sm" data-typeval="hallazgo"
-                onclick="filterPlantByType(this, '${plantId}')">Hallazgos</button>
-      </div>`;
-
-    // Generar filas: una fila por cada REGISTRO individual
+    // Generar filas: una por registro, nombre con rowspan
     let rowsHTML = '';
     activeAuds.forEach(a => {
       const recs = audRecordsMap[a];
       const area = AUDITOR_AREA[a] || 'N/D';
-
       recs.forEach((r, idx) => {
         const s = getShortStatus(r["Estado"]);
-        const tipo = (r["Tipo de Auditoría"] || '').trim();
-        const isHallazgo = tipo.toLowerCase().includes('hallazgo') || tipo.toLowerCase().includes('acto') || tipo.toLowerCase().includes('subestandar') || tipo.toLowerCase().includes('subestándar');
-        const tipoClass = isHallazgo ? 'hallazgo' : 'igp';
-        const tipoLabel = isHallazgo ? 'Hallazgo' : 'IGP';
-
         const areaCell = showArea
           ? `<td><span style="background:#E0F2FE;color:#0369A1;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;">${area}</span></td>`
           : '';
-
-        // Mostrar nombre solo en la primera fila del auditor
         const nameCell = idx === 0
           ? `<td style="text-align:left;font-weight:600;" rowspan="${recs.length}">${a}</td>`
           : '';
-
-        rowsHTML += `<tr data-subarea="${area}" data-audittype="${tipoClass}">
-          ${nameCell}
-          ${areaCell}
-          <td><span style="background:${isHallazgo ? '#FEF2F2' : '#EFF6FF'};color:${isHallazgo ? '#991B1B' : '#1E40AF'};padding:3px 8px;border-radius:10px;font-size:10px;font-weight:600;">${tipoLabel}</span></td>
-          <td><span class="status-pill ${s.toLowerCase()}">${s}</span></td>
-        </tr>`;
+        rowsHTML += `<tr data-subarea="${area}">
+          ${nameCell}${areaCell}
+          <td><span class="status-pill ${s.toLowerCase()}">${s}</span></td></tr>`;
       });
     });
 
@@ -244,7 +218,6 @@ function renderPlantReport(data) {
           </div>
         </div>
         <div style="display:flex; align-items:center; flex-wrap:wrap; gap:8px;">
-          ${typeFilterHTML}
           ${subAreaFilterHTML}
           <button class="btn btn-secondary btn-sm" onclick="exportPlantPDF('${plant}')">
             <i class="fas fa-file-pdf"></i> PDF
@@ -256,29 +229,12 @@ function renderPlantReport(data) {
           <thead><tr>
             <th style="text-align:left;">Inspector</th>
             ${showArea ? '<th>Área</th>' : ''}
-            <th>Tipo</th>
             <th>Estado</th>
           </tr></thead>
           <tbody>${rowsHTML}</tbody>
         </table>
       </div>`;
     container.appendChild(card);
-  });
-}
-
-function filterPlantByType(btn, tableId) {
-  const val = btn.getAttribute('data-typeval');
-  const parent = btn.parentElement;
-  parent.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-
-  const rows = document.querySelectorAll(`#table-plant-${tableId} tbody tr`);
-  rows.forEach(r => {
-    if (val === 'all' || r.getAttribute('data-audittype') === val) {
-      r.style.display = '';
-    } else {
-      r.style.display = 'none';
-    }
   });
 }
 
