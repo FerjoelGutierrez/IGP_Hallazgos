@@ -4,9 +4,12 @@
 
 function getShortStatus(s) {
   if (!s) return "ND";
-  s = s.toLowerCase();
+  s = s.toLowerCase().trim();
+  // Prioridad: Si dice terminado o cerrado, es Ejecutado (E)
+  if (s === "terminado" || s === "cerrado" || s.includes("ejecut")) return "E";
+  // Si dice proceso o curso, es En Proceso (EP)
   if (s.includes("proce") || s.includes("curso")) return "EP";
-  if (s.includes("ejecut") || s.includes("termin") || s.includes("cerrad")) return "E";
+  // Si dice pendiente, es Pendiente (P)
   if (s.includes("pend")) return "P";
   return "ND";
 }
@@ -20,8 +23,12 @@ function getCompositeKey(r) {
   const auditor = (r["Auditor Asignado"] || "").toString().toLowerCase().trim();
   const area = (r["Área"] || "").toString().toLowerCase().trim();
   const unidad = (r["Unidad"] || "").toString().toLowerCase().trim();
+  const tipo = (r["Tipo de Auditoría"] || "").toString().toLowerCase().trim();
+  // Incluimos un identificador único si existe en el Excel (como un ID de hallazgo) 
+  // o el tipo de auditoría para evitar colisiones si una persona tiene varios el mismo día
+  const extraId = r["ID"] || r["Id"] || r["Nro"] || "";
 
-  return `${fStr}_${auditor}_${area}_${unidad}`;
+  return `${fStr}_${auditor}_${area}_${unidad}_${tipo}_${extraId}`;
 }
 
 function getProgrammerFromAuditor(auditorName) {
@@ -36,14 +43,16 @@ function getPlantFromAuditor(auditorName) {
 // --- SUPABASE DATA OPERATIONS ---
 
 // Genera clave normalizada para comparar registros (case-insensitive, trimmed)
-function makeRecordKey(fechaCreacion, auditor, area, unidad) {
+function makeRecordKey(fechaCreacion, auditor, area, unidad, tipo, extra) {
   let fStr = '';
   if (fechaCreacion instanceof Date) {
     fStr = fechaCreacion.toISOString().substring(0, 10);
   } else {
     fStr = (fechaCreacion || '').toString().substring(0, 10);
   }
-  return `${fStr}_${(auditor || '').toString().toLowerCase().trim()}_${(area || '').toString().toLowerCase().trim()}_${(unidad || '').toString().toLowerCase().trim()}`;
+  const t = (tipo || '').toString().toLowerCase().trim();
+  const e = (extra || '').toString().toLowerCase().trim();
+  return `${fStr}_${(auditor || '').toString().toLowerCase().trim()}_${(area || '').toString().toLowerCase().trim()}_${(unidad || '').toString().toLowerCase().trim()}_${t}_${e}`;
 }
 
 // Guardar registros en Supabase: INSERTA nuevos y ACTUALIZA existentes si el estado cambió
@@ -58,7 +67,7 @@ async function saveRecordsToSupabase(records) {
     const existingMap = new Map(); // key -> { id, estado, observaciones }
     if (existing) {
       existing.forEach(r => {
-        const key = makeRecordKey(r.fecha_creacion, r.auditor_asignado, r.area, r.unidad);
+        const key = makeRecordKey(r.fecha_creacion, r.auditor_asignado, r.area, r.unidad, r.tipo_auditoria, '');
         existingMap.set(key, { id: r.id, estado: r.estado || '', observaciones: r.observaciones || '' });
       });
     }
@@ -67,7 +76,8 @@ async function saveRecordsToSupabase(records) {
     const updatedRecords = []; // { supabaseId, estado, observaciones, tipo_auditoria }
 
     records.forEach(r => {
-      const key = makeRecordKey(r["Fecha de Creación"], r["Auditor Asignado"], r["Área"], r["Unidad"]);
+      const extraId = r["ID"] || r["Id"] || r["Nro"] || "";
+      const key = makeRecordKey(r["Fecha de Creación"], r["Auditor Asignado"], r["Área"], r["Unidad"], r["Tipo de Auditoría"], extraId);
       const existingRec = existingMap.get(key);
       const incomingEstado = r["Estado"] || 'Pendiente';
       const incomingObs = r["Observaciones"] || '';

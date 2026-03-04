@@ -159,7 +159,7 @@ function renderCharts(data) {
     options: ctxOpts
   });
 
-  renderActosChart(data);
+  renderTrendChart(data);
 }
 
 function renderActosChart(data) {
