@@ -200,7 +200,7 @@ function initDashboard() {
     area: [...new Set(rawData.map(r => r["Área"]))].filter(Boolean).sort(),
     type: [...new Set(rawData.map(r => r["Tipo de Auditoría"]))].filter(Boolean).sort(),
     auditor: [...new Set(rawData.map(r => r["Auditor Asignado"]))].filter(Boolean).sort(),
-    programmer: [...new Set(rawData.map(r => r["Programador"]))].filter(Boolean).sort()
+    programmer: [...new Set(rawData.map(r => r["Programador"]))].filter(p => p && p !== 'N/D').sort()
   };
   ["year", "month", "area", "type", "auditor", "programmer"].forEach(k => createFilter(k, opts[k]));
   updateDashboard();
@@ -367,7 +367,108 @@ function exportTableToPDF(id, title) {
 }
 
 function exportPlantPDF(plantName) {
-  exportTableToPDF('table-plant-' + plantName.replace(/\s/g, ''), 'Reporte_' + plantName);
+  const auditors = PLANT_GROUPS[plantName];
+  if (!auditors) return alert('Planta no encontrada');
+  
+  let plantData = rawData.filter(r => auditors.includes(r["Auditor Asignado"]));
+  if (plantData.length === 0) return alert('No hay datos para esta planta');
+
+  const now = new Date();
+  const doc = new jspdf.jsPDF('l', 'mm', 'a4');
+  const prog = PLANT_PROGRAMMER[plantName] || '';
+  const ej = plantData.filter(r => getShortStatus(r["Estado"]) === 'E').length;
+  const pend = plantData.filter(r => getShortStatus(r["Estado"]) === 'P').length;
+  const ep = plantData.filter(r => getShortStatus(r["Estado"]) === 'EP').length;
+  const pct = plantData.length > 0 ? ((ej / plantData.length) * 100).toFixed(1) : 0;
+
+  // Header
+  doc.setFontSize(16);
+  doc.setTextColor(15, 23, 42);
+  doc.setFont(undefined, 'bold');
+  doc.text(`${plantName} - ${prog}`, 14, 18);
+  doc.setFontSize(10);
+  doc.setFont(undefined, 'normal');
+  doc.setTextColor(100);
+  doc.text(`Total: ${plantData.length} | Ejecutadas: ${ej} | Pendientes: ${pend} | En Proceso: ${ep} | Cumplimiento: ${pct}%`, 14, 25);
+  doc.setFontSize(8);
+  doc.text(`Generado: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`, 14, 30);
+  doc.setDrawColor(15, 23, 42);
+  doc.setLineWidth(0.5);
+  doc.line(14, 32, 283, 32);
+
+  let yPos = 38;
+  const showArea = (plantName === "Planta Exteriores");
+  const headers = showArea 
+    ? [['Inspector', 'Área', 'Tipo', 'Departamento', 'Puntaje', 'Estado']]
+    : [['Inspector', 'Tipo', 'Departamento', 'Puntaje', 'Estado']];
+
+  const isIGP = (r) => (r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP');
+  const igpData = plantData.filter(isIGP).sort((a, b) => {
+    const u = (a["Unidad"] || '').localeCompare(b["Unidad"] || '');
+    return u !== 0 ? u : (a["Auditor Asignado"] || '').localeCompare(b["Auditor Asignado"] || '');
+  });
+  const hallData = plantData.filter(r => !isIGP(r)).sort((a, b) => {
+    const u = (a["Unidad"] || '').localeCompare(b["Unidad"] || '');
+    return u !== 0 ? u : (a["Auditor Asignado"] || '').localeCompare(b["Auditor Asignado"] || '');
+  });
+
+  const buildRows = (data) => data.map(r => {
+    const estado = r["Estado"] || 'Pendiente';
+    const puntaje = r["Puntaje"] || '-';
+    return showArea 
+      ? [r["Auditor Asignado"] || '', AUDITOR_AREA[r["Auditor Asignado"]] || '', r["Tipo de Auditoría"] || '', r["Departamento"] || '', puntaje, estado]
+      : [r["Auditor Asignado"] || '', r["Tipo de Auditoría"] || '', r["Departamento"] || '', puntaje, estado];
+  });
+
+  const tableConfig = (rows, sectionColor) => ({
+    startY: yPos,
+    head: headers,
+    body: rows,
+    theme: 'grid',
+    headStyles: { fillColor: sectionColor, textColor: 255, fontSize: 8, fontStyle: 'bold' },
+    styles: { fontSize: 7, cellPadding: 2, lineColor: [226, 232, 240] },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    didParseCell: (d) => {
+      const estadoCol = showArea ? 5 : 4;
+      if (d.column.index === estadoCol && d.section === 'body') {
+        const s = getShortStatus(d.cell.raw || '');
+        if (s === 'E') { d.cell.styles.textColor = [16, 185, 129]; d.cell.styles.fontStyle = 'bold'; }
+        else if (s === 'P') { d.cell.styles.textColor = [239, 68, 68]; d.cell.styles.fontStyle = 'bold'; }
+        else if (s === 'EP') { d.cell.styles.textColor = [245, 158, 11]; d.cell.styles.fontStyle = 'bold'; }
+      }
+    }
+  });
+
+  if (igpData.length > 0) {
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(30, 64, 175);
+    doc.text(`INSPECCIONES GENERALES PLANEADAS (${igpData.length})`, 14, yPos);
+    yPos += 4;
+    doc.autoTable(tableConfig(buildRows(igpData), [30, 64, 175]));
+    yPos = doc.lastAutoTable.finalY + 8;
+  }
+
+  if (hallData.length > 0) {
+    if (yPos > 170) { doc.addPage(); yPos = 20; }
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(180, 83, 9);
+    doc.text(`REPORTES DE ACTOS SUBESTANDARES - HALLAZGOS (${hallData.length})`, 14, yPos);
+    yPos += 4;
+    doc.autoTable(tableConfig(buildRows(hallData), [180, 83, 9]));
+  }
+
+  // Footer
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(7);
+    doc.setTextColor(150);
+    doc.text(`Pagina ${i} de ${pageCount} - IGP Dashboard Vitapro`, 14, 200);
+  }
+
+  doc.save(`Reporte_${plantName.replace(/\s/g, '_')}.pdf`);
 }
 
 function exportAllPlantsPDF(selectedProgrammer, filterType) {
@@ -413,7 +514,7 @@ function exportAllPlantsPDF(selectedProgrammer, filterType) {
     
     if (plantData.length === 0) return;
 
-    const prog = PLANT_PROGRAMMER[plant] || 'N/D';
+    const prog = PLANT_PROGRAMMER[plant] || '';
     const ej = plantData.filter(r => getShortStatus(r["Estado"]) === 'E').length;
     const pend = plantData.filter(r => getShortStatus(r["Estado"]) === 'P').length;
     const ep = plantData.filter(r => getShortStatus(r["Estado"]) === 'EP').length;
@@ -636,7 +737,7 @@ let _pdfFilterType = 'all'; // 'all', 'igp', 'hallazgos'
 
 function showExportModal(type) {
   // type = 'email' o 'pdf'
-  const programmers = [...new Set(Object.values(PLANT_PROGRAMMER))];
+  const programmers = [...new Set(Object.values(PLANT_PROGRAMMER))].filter(p => p && p !== 'N/D');
 
   let modal = document.getElementById('export-modal');
   if (!modal) {
@@ -1148,7 +1249,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   if (dataLoaded && rawData.length > 0) {
     rawData.forEach(r => {
       const configProg = getProgrammerFromAuditor(r["Auditor Asignado"] || '');
-      if (configProg !== 'N/D') r["Programador"] = configProg;
+      if (configProg) r["Programador"] = configProg;
     });
     welcomeScreen.classList.add('hidden');
     setTimeout(() => { welcomeScreen.style.display = 'none'; }, 500);

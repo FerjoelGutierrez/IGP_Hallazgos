@@ -31,7 +31,7 @@ function getCompositeKey(r) {
 
 function getProgrammerFromAuditor(auditorName) {
   const plant = AUDITOR_TO_PLANT[(auditorName || '').toLowerCase().trim()] || 'Otros';
-  return PLANT_PROGRAMMER[plant] || 'N/D';
+  return PLANT_PROGRAMMER[plant] || '';
 }
 
 function getPlantFromAuditor(auditorName) {
