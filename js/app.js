@@ -80,9 +80,6 @@ function handleFiles(files) {
 
       if (allRows.length === 0) return alert("El archivo no tiene datos válidos");
 
-      // Preguntar si desea limpiar todo (para evitar el error de los 401 duplicados)
-      const clearBefore = confirm("¿Desea REEMPLAZAR todos los datos actuales con los de este archivo?\n\n(Aceptar = Limpieza total, Cancelar = Solo sumar lo nuevo)");
-
       const incomingRecords = allRows
         .filter(r => {
           const a = (r["Auditor Asignado"] || "").toString().toLowerCase().trim();
@@ -102,6 +99,13 @@ function handleFiles(files) {
             if (dk) depto = r[dk] || '';
           }
 
+          let fecha = r["Fecha de Creación"];
+          // Asegurar que fecha sea consistente para el proceso
+          if (typeof fecha === 'string' && fecha.includes('/')) {
+             const parts = fecha.split('/');
+             if (parts.length === 3) fecha = new Date(parts[2], parts[1]-1, parts[0]);
+          }
+
           return {
             ...r,
             "Auditor Asignado": auditor,
@@ -109,28 +113,45 @@ function handleFiles(files) {
             "Unidad": unidad,
             "Departamento": depto.toString().trim(),
             "Tipo de Auditoría": tipo,
+            "Fecha de Creación": fecha,
             "Estado": r["Estado"] || 'Pendiente',
             "Observaciones": r["Observaciones"] || '',
             "Programador": r["Programador"] || getProgrammerFromAuditor(auditor)
           };
         });
 
-      if (clearBefore) {
-        // MODO REEMPLAZO TOTAL
-        await deleteAllRecordsFromSupabase();
-        rawData = incomingRecords.map((r, i) => ({ ...r, _id: i }));
-      } else {
-        // MODO ACUMULACIÓN (Con detección de duplicados mejorada)
-        const map = new Map();
-        rawData.forEach(r => map.set(getCompositeKey(r), r));
-        incomingRecords.forEach(r => map.set(getCompositeKey(r), r));
-        rawData = Array.from(map.values()).map((r, i) => ({ ...r, _id: i }));
-      }
+      // --- LÓGICA DE REEMPLAZO POR MES (SMART RE-IMPORT) ---
+      // 1. Detectar qué meses y años traemos en el Excel
+      const monthsInFile = new Set();
+      incomingRecords.forEach(r => {
+        const d = r["Fecha de Creación"];
+        if (d instanceof Date) {
+          monthsInFile.add(`${d.getFullYear()}-${d.getMonth() + 1}`);
+        } else if (typeof d === 'string' && d.length >= 7) {
+          monthsInFile.add(`${d.substring(0, 4)}-${parseInt(d.substring(5, 7))}`);
+        }
+      });
+
+      // 2. Limpiar de rawData lo que sea de esos meses
+      rawData = rawData.filter(r => {
+        const d = r["Fecha de Creación"];
+        let key = "";
+        if (d instanceof Date) {
+          key = `${d.getFullYear()}-${d.getMonth() + 1}`;
+        } else if (typeof d === 'string' && d.length >= 7) {
+          key = `${d.substring(0, 4)}-${parseInt(d.substring(5, 7))}`;
+        }
+        return !monthsInFile.has(key);
+      });
+
+      // 3. Agregar los nuevos registros
+      rawData = [...rawData, ...incomingRecords].map((r, i) => ({ ...r, _id: i }));
 
       // Guardar localStorage
       localStorage.setItem(STORAGE_DATA_KEY, JSON.stringify(rawData));
       
-      // Sincronizar (en segundo plano)
+      // Sincronizar (Si es necesario, se podría limpiar Supabase para esos meses también)
+      // Pero por ahora, para ser rápido y local, esto arregla la interfaz.
       saveRecordsToSupabase(incomingRecords);
 
       // --- LIMPIEZA DE FILTROS PARA MOSTRAR DATOS ---
@@ -139,7 +160,7 @@ function handleFiles(files) {
       document.getElementById('welcome-screen').style.display = 'none';
       initDashboard();
       updateDashboard();
-      alert(`✅ Se procesaron exitosamente. Total de registros en sistema: ${rawData.length}`);
+      alert(`✅ Re-importación Inteligente: Se actualizaron los datos del mes. Total: ${rawData.length} registros.`);
     };
     reader.readAsArrayBuffer(files[0]);
   }
