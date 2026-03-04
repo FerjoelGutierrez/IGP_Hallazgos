@@ -82,25 +82,32 @@ function handleFiles(files) {
 
       const incomingRecords = allRows
         .filter(r => {
-          const a = (r["Auditor Asignado"] || "").toString().toLowerCase().trim();
+          // Buscar columna "Auditor Asignado" sin importar mayúsculas
+          const keys = Object.keys(r);
+          const audKey = keys.find(k => k.toLowerCase().includes('auditor')) || "Auditor Asignado";
+          const a = (r[audKey] || "").toString().toLowerCase().trim();
           return a && !BLOCKED_AUDITORS_SET.has(a);
         })
         .map(r => {
-          // Normalización básica
-          const auditor = (r["Auditor Asignado"] || "").toString().trim();
-          const area = (r["Área"] || "").toString().trim();
-          const unidad = (r["Unidad"] || "").toString().trim();
-          const tipo = (r["Tipo de Auditoría"] || "").toString().trim();
-          
-          let depto = r["Departamento"] || '';
-          if (!depto) {
-            const keys = Object.keys(r);
-            const dk = keys.find(k => k.toLowerCase().includes('depto') || k.toLowerCase().includes('departamento') || k.toLowerCase().includes('ubicación'));
-            if (dk) depto = r[dk] || '';
-          }
+          const keys = Object.keys(r);
+          // Helper: buscar columna por nombre parcial (case-insensitive)
+          const findCol = (...terms) => {
+            for (const term of terms) {
+              const found = keys.find(k => k.toLowerCase().includes(term.toLowerCase()));
+              if (found) return r[found] || '';
+            }
+            return '';
+          };
 
-          let fecha = r["Fecha de Creación"];
-          // Asegurar que fecha sea consistente para el proceso
+          const auditor = findCol('auditor').toString().trim();
+          const area = findCol('área', 'area').toString().trim();
+          const unidad = findCol('unidad').toString().trim();
+          const tipo = findCol('tipo de auditor', 'tipo auditor').toString().trim();
+          const depto = findCol('departamento', 'depto', 'ubicación').toString().trim();
+          const estado = findCol('estado').toString().trim() || 'Pendiente';
+          const obs = findCol('observacion').toString().trim();
+
+          let fecha = findCol('fecha de creación', 'fecha creación', 'fecha');
           if (typeof fecha === 'string' && fecha.includes('/')) {
              const parts = fecha.split('/');
              if (parts.length === 3) fecha = new Date(parts[2], parts[1]-1, parts[0]);
@@ -111,12 +118,12 @@ function handleFiles(files) {
             "Auditor Asignado": auditor,
             "Área": area,
             "Unidad": unidad,
-            "Departamento": depto.toString().trim(),
+            "Departamento": depto,
             "Tipo de Auditoría": tipo,
             "Fecha de Creación": fecha,
-            "Estado": r["Estado"] || 'Pendiente',
-            "Observaciones": r["Observaciones"] || '',
-            "Programador": r["Programador"] || getProgrammerFromAuditor(auditor)
+            "Estado": estado,
+            "Observaciones": obs,
+            "Programador": r["Programador"] || findCol('programador').toString().trim() || getProgrammerFromAuditor(auditor)
           };
         });
 
