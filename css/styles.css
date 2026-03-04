@@ -163,7 +163,7 @@ body {
   background: var(--bg-surface);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
-  padding: 24px; margin-bottom: 24px;
+  padding: 16px; margin-bottom: 16px;
   border: 1px solid var(--border-color);
 }
 
@@ -205,9 +205,11 @@ body {
 /* --- Filters --- */
 .filters-inline {
   background: transparent;
-  padding: 0 0 24px 0;
-  margin-bottom: 24px;
+  padding: 0 0 16px 0;
+  margin-bottom: 16px;
   border-bottom: 1px dashed var(--border-color);
+  position: relative;
+  z-index: 50;
 }
 
 .filters-grid {
@@ -296,8 +298,8 @@ body {
 .kpi-sub { display: none; }
 
 /* --- Charts --- */
-.charts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
-.chart-container { height: 350px; position: relative; }
+.charts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.chart-container { height: 260px; position: relative; width: 100%; }
 
 /* --- Tables --- */
 .table-container {
