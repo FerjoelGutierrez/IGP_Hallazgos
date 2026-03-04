@@ -83,3 +83,5 @@ const FILTER_LABELS = {
   year: 'Año', month: 'Mes', area: 'Área',
   type: 'Tipo', auditor: 'Inspector', programmer: 'Programador'
 };
+
+const STATES_LIST = ['Prisa', 'Frustración', 'Fatiga', 'Complacencia', 'Exceso de confianza'];

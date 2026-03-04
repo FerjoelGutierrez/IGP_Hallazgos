@@ -46,22 +46,12 @@
       <div class="menu-item" onclick="switchView('plants', this)">
         <i class="fas fa-industry"></i> Reporte por Planta
       </div>
-      <div class="menu-item" onclick="switchView('details', this)">
-        <i class="fas fa-list"></i> Detalle Registros
-      </div>
       <div class="menu-item" onclick="switchView('assignment', this)">
         <i class="fas fa-clipboard-list"></i> Asignación IGP
       </div>
       <div class="menu-item" onclick="switchView('analysis', this)">
         <i class="fas fa-search-dollar"></i> Análisis Avanzado
       </div>
-      <div class="menu-item" onclick="switchView('history', this)">
-        <i class="fas fa-history"></i> Histórico / Backups
-      </div>
-    </div>
-    <div class="sidebar-footer">
-      IGP Dashboard v3.0 (Pro)<br>
-      © 2025 Vitapro
     </div>
   </nav>
 
@@ -93,25 +83,26 @@
 
     <div class="content-scroll">
 
-      <!-- Global Filters -->
-      <div class="card no-print" id="global-filters-card">
-        <div class="card-header" style="border:none; padding-bottom:0; margin-bottom:10px;">
-          <h3 style="font-size:13px; text-transform:uppercase; color:var(--text-secondary);">
-            <i class="fas fa-filter"></i> Filtros Globales (Multi-selección)
-          </h3>
-        </div>
-        <div class="filters-grid">
-          <div id="filter-year"></div>
-          <div id="filter-month"></div>
-          <div id="filter-area"></div>
-          <div id="filter-type"></div>
-          <div id="filter-auditor"></div>
-          <div id="filter-programmer"></div>
-        </div>
-      </div>
-
       <!-- VIEW: Dashboard General -->
       <div id="view-dashboard" class="view-section active">
+
+        <!-- Global Filters -->
+        <div class="card no-print" id="global-filters-card">
+          <div class="card-header" style="border:none; padding-bottom:0; margin-bottom:10px;">
+            <h3 style="font-size:13px; text-transform:uppercase; color:var(--text-secondary);">
+              <i class="fas fa-filter"></i> Filtros Globales (Multi-selección)
+            </h3>
+          </div>
+          <div class="filters-grid">
+            <div id="filter-year"></div>
+            <div id="filter-month"></div>
+            <div id="filter-area"></div>
+            <div id="filter-type"></div>
+            <div id="filter-auditor"></div>
+            <div id="filter-programmer"></div>
+          </div>
+        </div>
+
         <div class="kpi-grid">
           <div class="kpi-card">
             <div class="kpi-title">Total Visible</div>
@@ -155,6 +146,11 @@
             <div class="card-header"><h3>Estado por Planta (Comparativo)</h3></div>
             <div class="chart-container"><canvas id="chart-plant"></canvas></div>
             <div id="analysis-plant" class="analysis-box"></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>Incumplimiento de Actos</h3></div>
+            <div class="chart-container"><canvas id="chart-actos"></canvas></div>
+            <div id="analysis-actos" class="analysis-box"></div>
           </div>
           <div class="card">
             <div class="card-header"><h3>Tendencia Cumplimiento (%)</h3></div>
@@ -229,12 +225,6 @@
 
       <!-- VIEW: Asignación IGP -->
       <div id="view-assignment" class="view-section">
-        <div class="card no-print">
-          <div class="card-header">
-            <h3><i class="fas fa-clipboard-list" style="color:var(--accent-color);margin-right:8px;"></i> Panel de Asignación IGP</h3>
-            <div style="font-size:12px; color:var(--text-secondary);">Vista consolidada de asignaciones por inspector, mes y planta</div>
-          </div>
-        </div>
         <div id="assignment-container"></div>
       </div>
 

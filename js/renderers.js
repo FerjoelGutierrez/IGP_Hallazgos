@@ -23,6 +23,9 @@ function renderKPIs(data) {
 function renderCharts(data) {
   const mData = { E: Array(12).fill(0), P: Array(12).fill(0) };
   let cE = 0, cP = 0, cEP = 0;
+  
+  // Desglose para tooltips
+  const breakdown = { E: {}, P: {}, EP: {} };
 
   const plantStats = {};
   Object.keys(PLANT_GROUPS).forEach(p => plantStats[p] = { E: 0, P: 0, EP: 0 });
@@ -31,6 +34,12 @@ function renderCharts(data) {
   data.forEach(r => {
     const s = getShortStatus(r["Estado"]);
     if (s === 'E') cE++; else if (s === 'P') cP++; else if (s === 'EP') cEP++;
+
+    // Guardar desglose por categoría (Tipo de Auditoría)
+    const cat = (r["Tipo de Auditoría"] || "Sin Categoría").trim();
+    if (breakdown[s]) {
+      breakdown[s][cat] = (breakdown[s][cat] || 0) + 1;
+    }
 
     const d = r["Fecha de Creación"];
     let m = 0;
@@ -73,7 +82,47 @@ function renderCharts(data) {
       labels: ['Ejecutadas', 'Pendientes', 'En Proceso'],
       datasets: [{ data: [cE, cP, cEP], backgroundColor: ['#0F172A', '#EF4444', '#F59E0B'] }]
     },
-    options: ctxOpts
+    options: {
+      ...ctxOpts,
+      plugins: {
+        ...ctxOpts.plugins,
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const label = context.label || '';
+              const value = context.raw || 0;
+              const sKey = label === 'Ejecutadas' ? 'E' : (label === 'Pendientes' ? 'P' : 'EP');
+              const cats = breakdown[sKey];
+              let lines = [` ${label}: ${value}`];
+              
+              if (cats) {
+                const findings = [];
+                const states = [];
+                
+                Object.entries(cats).forEach(([k, v]) => {
+                  if (STATES_LIST.includes(k)) states.push({k, v});
+                  else findings.push({k, v});
+                });
+
+                if (findings.length > 0) {
+                  lines.push('--- HALLAZGOS ---');
+                  findings.sort((a,b) => b.v - a.v).slice(0, 5).forEach(f => {
+                    lines.push(` • ${f.k}: ${f.v}`);
+                  });
+                }
+                if (states.length > 0) {
+                  lines.push('--- ESTADOS (F.H) ---');
+                  states.sort((a,b) => b.v - a.v).forEach(s => {
+                    lines.push(` • ${s.k}: ${s.v}`);
+                  });
+                }
+              }
+              return lines;
+            }
+          }
+        }
+      }
+    }
   });
 
   if (charts.plant) charts.plant.destroy();
@@ -108,7 +157,119 @@ function renderCharts(data) {
     },
     options: ctxOpts
   });
+
+  renderActosChart(data);
 }
+
+function renderActosChart(data) {
+  const container = document.getElementById('chart-actos');
+  if (!container) return;
+
+  const stateStats = {};
+  const stateBreakdown = {};
+  let totalVisible = 0;
+
+  data.forEach(r => {
+    let foundState = null;
+    const FH_KEYS = ['factor humano', 'estado crítico', 'estado f.h', 'estado fh', 'acto'];
+    const keys = Object.keys(r);
+    
+    for (const k of FH_KEYS) {
+        const actualKey = keys.find(rk => rk.toLowerCase().includes(k));
+        if (actualKey && STATES_LIST.includes(r[actualKey])) {
+            foundState = r[actualKey];
+            break;
+        }
+    }
+    
+    if (!foundState) {
+        for (const k of keys) {
+            if (STATES_LIST.includes(r[k])) {
+                foundState = r[k];
+                break;
+            }
+        }
+    }
+
+    if (foundState) {
+      stateStats[foundState] = (stateStats[foundState] || 0) + 1;
+      const cat = (r["Tipo de Auditoría"] || "General").trim();
+      if (!stateBreakdown[foundState]) stateBreakdown[foundState] = {};
+      stateBreakdown[foundState][cat] = (stateBreakdown[foundState][cat] || 0) + 1;
+      totalVisible++;
+    }
+  });
+
+  const ctxOpts = { 
+    responsive: true, 
+    maintainAspectRatio: false, 
+    plugins: { 
+        legend: { display: false },
+        tooltip: {
+            callbacks: {
+                label: function(context) {
+                    const labelWithPct = context.label || '';
+                    const value = context.raw || 0;
+                    const label = labelWithPct.split(' (')[0]; // Extraer nombre sin el %
+                    const pct = totalVisible ? ((value / totalVisible) * 100).toFixed(1) : 0;
+                    let lines = [` ${label}: ${value} (${pct}%)`];
+                    
+                    const cats = stateBreakdown[label];
+                    if (cats) {
+                        lines.push('--- CATEGORÍAS REPORTADAS ---');
+                        Object.entries(cats)
+                            .sort((a,b) => b[1] - a[1])
+                            .slice(0, 5)
+                            .forEach(([k, v]) => lines.push(` • ${k}: ${v}`));
+                    }
+                    return lines;
+                }
+            }
+        }
+    } 
+  };
+
+  if (charts.actos) charts.actos.destroy();
+  
+  const sortedLabels = Object.keys(stateStats).sort((a,b) => stateStats[b] - stateStats[a]);
+  const displayLabels = sortedLabels.map(l => {
+      const p = totalVisible ? ((stateStats[l] / totalVisible) * 100).toFixed(0) : 0;
+      return `${l} (${p}%)`;
+  });
+  const counts = sortedLabels.map(l => stateStats[l]);
+
+  charts.actos = new Chart(container, {
+    type: 'bar',
+    data: {
+      labels: displayLabels,
+      datasets: [{
+        label: 'Cantidad de Actos',
+        data: counts,
+        backgroundColor: [
+            '#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#6366F1', '#8B5CF6'
+        ].slice(0, sortedLabels.length)
+      }]
+    },
+    options: {
+      ...ctxOpts,
+      indexAxis: 'y',
+      scales: {
+        x: { beginAtZero: true, grid: { display: false } },
+        y: { grid: { display: false } }
+      }
+    }
+  });
+
+  if (totalVisible > 0) {
+      const topState = sortedLabels[0];
+      const topPct = ((stateStats[topState] / totalVisible) * 100).toFixed(1);
+      document.getElementById('analysis-actos').innerHTML = 
+        `El estado crítico más frecuente es <strong>${topState}</strong> representando el <strong>${topPct}%</strong> de los actos reportados.`;
+  } else {
+      document.getElementById('analysis-actos').innerHTML = "No se detectaron 'Estados Críticos' en los datos filtrados.";
+  }
+}
+
 
 function renderMatrix(data) {
   const auds = {};
