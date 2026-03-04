@@ -361,32 +361,93 @@ function exportAllPlantsPDF(selectedProgrammer) {
 
   if (plants.length === 0) return alert('No hay datos para este programador');
 
-  const doc = new jspdf.jsPDF('p');
+  const now = new Date();
+  const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+  const doc = new jspdf.jsPDF('p', 'mm', 'a4');
+  
+  // Header
   doc.setFontSize(18);
-  doc.text(selectedProgrammer === 'all' ? "Reporte Consolidado" : `Reporte - ${selectedProgrammer}`, 14, 15);
-  let yPos = 25;
+  doc.setTextColor(15, 23, 42);
+  doc.setFont(undefined, 'bold');
+  doc.text(selectedProgrammer === 'all' ? "REPORTE CONSOLIDADO IGP" : `REPORTE - ${selectedProgrammer.toUpperCase()}`, 14, 18);
+  doc.setFontSize(10);
+  doc.setFont(undefined, 'normal');
+  doc.setTextColor(100);
+  doc.text(`Generado: ${now.toLocaleDateString()} ${now.toLocaleTimeString()} · Registros filtrados: ${filteredData.length}`, 14, 25);
+  doc.setDrawColor(15, 23, 42);
+  doc.setLineWidth(0.5);
+  doc.line(14, 28, 196, 28);
+
+  let yPos = 35;
 
   plants.forEach(plant => {
-    const table = document.querySelector('#table-plant-' + plant.replace(/\s/g, '') + ' table');
-    if (table) {
-      doc.setFontSize(14);
-      doc.text(`${plant} (${PLANT_PROGRAMMER[plant] || "N/D"})`, 14, yPos);
-      doc.autoTable({
-        html: table, startY: yPos + 5, theme: 'grid',
-        headStyles: { fillColor: [15, 23, 42] },
-        didParseCell: (d) => {
-          if (d.section === 'body') {
-            const t = (d.cell.raw.innerText || '').trim();
-            if (t === 'E') { d.cell.styles.fillColor = [16, 185, 129]; d.cell.styles.textColor = 255; }
-            else if (t === 'P') { d.cell.styles.fillColor = [239, 68, 68]; d.cell.styles.textColor = 255; }
-            else if (t === 'EP') { d.cell.styles.fillColor = [245, 158, 11]; }
-          }
+    const auditors = PLANT_GROUPS[plant];
+    const plantData = filteredData.filter(r => auditors.includes(r["Auditor Asignado"]));
+    if (plantData.length === 0) return;
+
+    const prog = PLANT_PROGRAMMER[plant] || 'N/D';
+    const ej = plantData.filter(r => getShortStatus(r["Estado"]) === 'E').length;
+    const pend = plantData.filter(r => getShortStatus(r["Estado"]) === 'P').length;
+    const ep = plantData.filter(r => getShortStatus(r["Estado"]) === 'EP').length;
+    const pct = plantData.length > 0 ? ((ej / plantData.length) * 100).toFixed(1) : 0;
+
+    if (yPos > 240) { doc.addPage(); yPos = 20; }
+
+    // Plant header
+    doc.setFontSize(13);
+    doc.setTextColor(15, 23, 42);
+    doc.setFont(undefined, 'bold');
+    doc.text(`${plant} — ${prog}`, 14, yPos);
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(80);
+    doc.text(`Total: ${plantData.length} | Ejecutadas: ${ej} | Pendientes: ${pend} | En Proceso: ${ep} | Cumplimiento: ${pct}%`, 14, yPos + 5);
+    yPos += 9;
+
+    // Table from data
+    const showArea = (plant === "Planta Exteriores");
+    const headers = showArea 
+      ? [['Inspector', 'Área', 'Tipo', 'Departamento', 'Estado']]
+      : [['Inspector', 'Tipo', 'Departamento', 'Estado']];
+
+    const rows = plantData.map(r => {
+      const estado = r["Estado"] || 'Pendiente';
+      const row = showArea 
+        ? [r["Auditor Asignado"] || '', AUDITOR_AREA[r["Auditor Asignado"]] || '', r["Tipo de Auditoría"] || '', r["Departamento"] || '', estado]
+        : [r["Auditor Asignado"] || '', r["Tipo de Auditoría"] || '', r["Departamento"] || '', estado];
+      return row;
+    });
+
+    doc.autoTable({
+      startY: yPos,
+      head: headers,
+      body: rows,
+      theme: 'grid',
+      headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8 },
+      styles: { fontSize: 7, cellPadding: 2 },
+      didParseCell: (d) => {
+        const colIdx = showArea ? 4 : 3;
+        if (d.column.index === colIdx && d.section === 'body') {
+          const s = getShortStatus(d.cell.raw || '');
+          if (s === 'E') { d.cell.styles.textColor = [16, 185, 129]; d.cell.styles.fontStyle = 'bold'; }
+          else if (s === 'P') { d.cell.styles.textColor = [239, 68, 68]; d.cell.styles.fontStyle = 'bold'; }
+          else if (s === 'EP') { d.cell.styles.textColor = [245, 158, 11]; d.cell.styles.fontStyle = 'bold'; }
         }
-      });
-      yPos = doc.lastAutoTable.finalY + 15;
-      if (yPos > 250) { doc.addPage(); yPos = 20; }
-    }
+      }
+    });
+
+    yPos = doc.lastAutoTable.finalY + 12;
   });
+
+  // Footer on all pages
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(7);
+    doc.setTextColor(150);
+    doc.text(`Página ${i} de ${pageCount} — IGP Dashboard Vitapro`, 14, 288);
+  }
+
   const filename = selectedProgrammer === 'all' ? 'Reporte_Todas_Plantas' : `Reporte_${selectedProgrammer.replace(/\s/g, '_')}`;
   doc.save(filename + '.pdf');
 }

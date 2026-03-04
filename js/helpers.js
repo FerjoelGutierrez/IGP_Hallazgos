@@ -23,8 +23,10 @@ function getCompositeKey(r) {
   const auditor = (r["Auditor Asignado"] || "").toString().toLowerCase().trim();
   const area = (r["Área"] || "").toString().toLowerCase().trim();
   const unidad = (r["Unidad"] || "").toString().toLowerCase().trim();
+  const tipo = (r["Tipo de Auditoría"] || "").toString().toLowerCase().trim();
+  const depto = (r["Departamento"] || "").toString().toLowerCase().trim();
 
-  return `${fStr}_${auditor}_${area}_${unidad}`;
+  return `${fStr}_${auditor}_${area}_${unidad}_${tipo}_${depto}`;
 }
 
 function getProgrammerFromAuditor(auditorName) {
@@ -39,14 +41,14 @@ function getPlantFromAuditor(auditorName) {
 // --- SUPABASE DATA OPERATIONS ---
 
 // Genera clave normalizada para comparar registros (case-insensitive, trimmed)
-function makeRecordKey(fechaCreacion, auditor, area, unidad) {
+function makeRecordKey(fechaCreacion, auditor, area, unidad, tipo, depto) {
   let fStr = '';
   if (fechaCreacion instanceof Date) {
     fStr = fechaCreacion.toISOString().substring(0, 10);
   } else {
     fStr = (fechaCreacion || '').toString().substring(0, 10);
   }
-  return `${fStr}_${(auditor || '').toString().toLowerCase().trim()}_${(area || '').toString().toLowerCase().trim()}_${(unidad || '').toString().toLowerCase().trim()}`;
+  return `${fStr}_${(auditor || '').toString().toLowerCase().trim()}_${(area || '').toString().toLowerCase().trim()}_${(unidad || '').toString().toLowerCase().trim()}_${(tipo || '').toString().toLowerCase().trim()}_${(depto || '').toString().toLowerCase().trim()}`;
 }
 
 // Guardar registros en Supabase: INSERTA nuevos y ACTUALIZA existentes si el estado cambió
@@ -61,7 +63,7 @@ async function saveRecordsToSupabase(records) {
     const existingMap = new Map(); // key -> { id, estado, observaciones }
     if (existing) {
       existing.forEach(r => {
-        const key = makeRecordKey(r.fecha_creacion, r.auditor_asignado, r.area, r.unidad);
+        const key = makeRecordKey(r.fecha_creacion, r.auditor_asignado, r.area, r.unidad, r.tipo_auditoria, r.departamento);
         existingMap.set(key, { id: r.id, estado: r.estado || '', observaciones: r.observaciones || '' });
       });
     }
@@ -70,7 +72,7 @@ async function saveRecordsToSupabase(records) {
     const updatedRecords = []; // { supabaseId, estado, observaciones, tipo_auditoria }
 
     records.forEach(r => {
-      const key = makeRecordKey(r["Fecha de Creación"], r["Auditor Asignado"], r["Área"], r["Unidad"]);
+      const key = makeRecordKey(r["Fecha de Creación"], r["Auditor Asignado"], r["Área"], r["Unidad"], r["Tipo de Auditoría"], r["Departamento"]);
       const existingRec = existingMap.get(key);
       const incomingEstado = r["Estado"] || 'Pendiente';
       const incomingObs = r["Observaciones"] || '';
