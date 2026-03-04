@@ -349,23 +349,42 @@ function renderPlantReport(data) {
         </div>`;
     }
 
-    // Generar filas: una por registro, nombre con rowspan
+    // Generar filas: UNA por inspector con resumen
     let rowsHTML = '';
     activeAuds.forEach(a => {
       const recs = audRecordsMap[a];
       const area = AUDITOR_AREA[a] || 'N/D';
-      recs.forEach((r, idx) => {
+
+      // Contar IGPs y Hallazgos
+      const igpCount = recs.filter(r => (r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP')).length;
+      const hallCount = recs.filter(r => !(r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP')).length;
+      
+      // Resumen de asignaciones
+      let assignParts = [];
+      if (igpCount > 0) assignParts.push(`${igpCount} IGP`);
+      if (hallCount > 0) assignParts.push(`${hallCount} Hallazgo${hallCount > 1 ? 's' : ''}`);
+      const assignText = assignParts.length > 0 ? assignParts.join(', ') : `${recs.length} Total`;
+
+      // Generar pills de estado individual
+      const statusPills = recs.map(r => {
         const s = getShortStatus(r["Estado"]);
-        const areaCell = showArea
-          ? `<td><span style="background:#E0F2FE;color:#0369A1;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;">${area}</span></td>`
-          : '';
-        const nameCell = idx === 0
-          ? `<td style="text-align:left;font-weight:600;" rowspan="${recs.length}">${a}</td>`
-          : '';
-        rowsHTML += `<tr data-subarea="${area}">
-          ${nameCell}${areaCell}
-          <td><span class="status-pill ${s.toLowerCase()}">${s}</span></td></tr>`;
-      });
+        return `<span class="status-pill ${s.toLowerCase()}" title="${(r["Tipo de Auditoría"] || 'N/D')} - ${r["Estado"] || 'Pendiente'}" style="cursor:help;">${s}</span>`;
+      }).join(' ');
+
+      const areaCell = showArea
+        ? `<td><span style="background:#E0F2FE;color:#0369A1;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;">${area}</span></td>`
+        : '';
+
+      rowsHTML += `<tr data-subarea="${area}">
+        <td style="text-align:left;font-weight:600;">${a}</td>
+        ${areaCell}
+        <td style="text-align:center;">
+          <span style="background:#F1F5F9;color:#334155;padding:3px 8px;border-radius:8px;font-size:11px;font-weight:600;">${assignText}</span>
+        </td>
+        <td style="text-align:center;">
+          <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">${statusPills}</div>
+        </td>
+      </tr>`;
     });
 
     const card = document.createElement('div');
@@ -390,7 +409,8 @@ function renderPlantReport(data) {
           <thead><tr>
             <th style="text-align:left;">Inspector</th>
             ${showArea ? '<th>Área</th>' : ''}
-            <th>Estado</th>
+            <th>Asignaciones</th>
+            <th>Estados</th>
           </tr></thead>
           <tbody>${rowsHTML}</tbody>
         </table>
