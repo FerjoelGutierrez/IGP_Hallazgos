@@ -90,10 +90,13 @@ function handleFiles(files) {
         })
         .map(r => {
           const keys = Object.keys(r);
-          // Helper: buscar columna por nombre parcial (case-insensitive)
+          // Helper: quitar acentos para comparar
+          const stripAccents = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+          // Helper: buscar columna por nombre parcial (sin acentos, case-insensitive)
           const findCol = (...terms) => {
             for (const term of terms) {
-              const found = keys.find(k => k.toLowerCase().includes(term.toLowerCase()));
+              const termClean = stripAccents(term);
+              const found = keys.find(k => stripAccents(k).includes(termClean));
               if (found) return r[found] || '';
             }
             return '';
@@ -848,8 +851,9 @@ function deduplicateRawData() {
   }
 }
 
-// --- AUTO-REPARAR campos faltantes (por imports anteriores con columnas en mayúsculas) ---
+// --- AUTO-REPARAR campos faltantes (por imports anteriores con columnas en mayúsculas/acentos) ---
 function fixMissingFields() {
+  const stripAccents = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   let fixed = 0;
   rawData.forEach(r => {
     const keys = Object.keys(r);
@@ -857,10 +861,10 @@ function fixMissingFields() {
     // Reparar "Tipo de Auditoría" si está vacío
     if (!r["Tipo de Auditoría"] || r["Tipo de Auditoría"] === '') {
       const tipoKey = keys.find(k => {
-        const lk = k.toLowerCase();
-        return (lk.includes('tipo') && lk.includes('auditor')) || lk === 'tipo de auditoría';
+        const clean = stripAccents(k);
+        return (clean.includes('tipo') && clean.includes('auditor'));
       });
-      if (tipoKey && tipoKey !== "Tipo de Auditoría" && r[tipoKey]) {
+      if (tipoKey && r[tipoKey]) {
         r["Tipo de Auditoría"] = r[tipoKey].toString().trim();
         fixed++;
       }
@@ -869,25 +873,25 @@ function fixMissingFields() {
     // Reparar "Departamento" si está vacío
     if (!r["Departamento"] || r["Departamento"] === '') {
       const deptoKey = keys.find(k => {
-        const lk = k.toLowerCase();
-        return lk.includes('departamento') || lk.includes('depto');
+        const clean = stripAccents(k);
+        return clean.includes('departamento') || clean.includes('depto');
       });
-      if (deptoKey && deptoKey !== "Departamento" && r[deptoKey]) {
+      if (deptoKey && r[deptoKey]) {
         r["Departamento"] = r[deptoKey].toString().trim();
       }
     }
     
-    // Reparar "Estado" si está vacío
+    // Reparar "Estado" si está vacío  
     if (!r["Estado"] || r["Estado"] === '') {
-      const estKey = keys.find(k => k.toLowerCase() === 'estado');
-      if (estKey && estKey !== "Estado" && r[estKey]) {
+      const estKey = keys.find(k => stripAccents(k) === 'estado');
+      if (estKey && r[estKey]) {
         r["Estado"] = r[estKey].toString().trim();
       }
     }
   });
   
   if (fixed > 0) {
-    console.log(`🔧 Auto-reparación: ${fixed} registros corregidos (Tipo de Auditoría recuperado)`);
+    console.log(`🔧 Auto-reparación: ${fixed} registros corrigidos (Tipo de Auditoría recuperado)`);
     localStorage.setItem(STORAGE_DATA_KEY, JSON.stringify(rawData));
   }
 }
