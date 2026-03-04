@@ -167,11 +167,21 @@ function createFilter(key, values) {
   const container = document.getElementById(id);
   if (!container) return;
   const label = FILTER_LABELS[key] || key;
+  const icons = {
+    year: 'fas fa-calendar-alt',
+    month: 'far fa-calendar',
+    area: 'fas fa-layer-group',
+    type: 'fas fa-shield-alt',
+    auditor: 'fas fa-user-tie',
+    programmer: 'fas fa-user-cog'
+  };
+  const iconClass = icons[key] || 'fas fa-filter';
 
   container.innerHTML = `
     <div class="filter-wrapper">
       <button class="filter-btn" onclick="toggleFilter('${id}')">
-        <span>${label}</span> <i class="fas fa-chevron-down"></i>
+        <span><i class="${iconClass}" style="margin-right:6px;font-size:12px;"></i> ${label}</span> 
+        <i class="fas fa-chevron-down" style="font-size:10px;"></i>
       </button>
       <div class="filter-dropdown" id="dropdown-${id}">
         <input type="text" placeholder="Buscar..." class="filter-search" onkeyup="filterOptions('${id}', this.value)">

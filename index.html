@@ -87,12 +87,7 @@
       <div id="view-dashboard" class="view-section active">
 
         <!-- Global Filters -->
-        <div class="card no-print" id="global-filters-card">
-          <div class="card-header" style="border:none; padding-bottom:0; margin-bottom:10px;">
-            <h3 style="font-size:13px; text-transform:uppercase; color:var(--text-secondary);">
-              <i class="fas fa-filter"></i> Filtros Globales (Multi-selección)
-            </h3>
-          </div>
+        <div class="filters-inline no-print" id="global-filters-card">
           <div class="filters-grid">
             <div id="filter-year"></div>
             <div id="filter-month"></div>
@@ -105,29 +100,39 @@
 
         <div class="kpi-grid">
           <div class="kpi-card">
-            <div class="kpi-title">Total Visible</div>
+            <div class="kpi-top" style="display:flex; justify-content:space-between; align-items:center;">
+              <div class="kpi-title">Total Visible</div>
+              <i class="fas fa-eye" style="color:var(--text-secondary); font-size:16px;"></i>
+            </div>
             <div class="kpi-value" id="kpi-total">0</div>
-            <div class="kpi-sub">Registros Filtrados</div>
           </div>
           <div class="kpi-card">
-            <div class="kpi-title">Ejecutadas</div>
+            <div class="kpi-top" style="display:flex; justify-content:space-between; align-items:center;">
+              <div class="kpi-title">Terminados Exitosamente</div>
+              <i class="fas fa-check-circle" style="color:var(--status-success); font-size:16px;"></i>
+            </div>
             <div class="kpi-value" id="kpi-ejec" style="color:var(--status-success);">0</div>
-            <div class="kpi-sub">Cerradas</div>
           </div>
           <div class="kpi-card">
-            <div class="kpi-title">En Proceso</div>
+            <div class="kpi-top" style="display:flex; justify-content:space-between; align-items:center;">
+              <div class="kpi-title">En Proceso / Ejecución</div>
+              <i class="fas fa-clock" style="color:var(--status-warning); font-size:16px;"></i>
+            </div>
             <div class="kpi-value" id="kpi-proc" style="color:var(--status-warning);">0</div>
-            <div class="kpi-sub">Seguimiento Activo</div>
           </div>
           <div class="kpi-card">
-            <div class="kpi-title">Pendientes</div>
+            <div class="kpi-top" style="display:flex; justify-content:space-between; align-items:center;">
+              <div class="kpi-title">Total Pendientes</div>
+              <i class="fas fa-exclamation-circle" style="color:var(--status-error); font-size:16px;"></i>
+            </div>
             <div class="kpi-value" id="kpi-pend" style="color:var(--status-error);">0</div>
-            <div class="kpi-sub">Atención Requerida</div>
           </div>
-          <div class="kpi-card">
-            <div class="kpi-title">% Eficacia</div>
-            <div class="kpi-value" id="kpi-cump">0%</div>
-            <div class="kpi-sub" id="kpi-cump-sub">Ejecutadas vs Planificadas</div>
+          <div class="kpi-card" style="background:var(--primary-color); border-color:var(--primary-color);">
+            <div class="kpi-top" style="display:flex; justify-content:space-between; align-items:center;">
+              <div class="kpi-title" style="color:#CBD5E1;">Nivel de Cumplimiento</div>
+              <i class="fas fa-chart-line" style="color:var(--accent-color); font-size:16px;"></i>
+            </div>
+            <div class="kpi-value" id="kpi-cump" style="color:white; font-size:38px;">0%</div>
           </div>
         </div>
 
