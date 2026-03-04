@@ -159,7 +159,6 @@ function renderCharts(data) {
     options: ctxOpts
   });
 
-  renderTrendChart(data);
 }
 
 function renderActosChart(data) {

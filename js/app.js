@@ -719,6 +719,124 @@ async function clearSavedData() {
   }
 }
 
+// --- DEDUPLICAR DATOS ---
+function deduplicateRawData() {
+  const map = new Map();
+  rawData.forEach(r => {
+    const key = getCompositeKey(r);
+    const existing = map.get(key);
+    if (existing) {
+      // Si hay duplicado, mantener el que tenga estado más avanzado
+      const oldStatus = getShortStatus(existing["Estado"]);
+      const newStatus = getShortStatus(r["Estado"]);
+      const priority = { 'E': 3, 'EP': 2, 'P': 1, 'ND': 0 };
+      if ((priority[newStatus] || 0) >= (priority[oldStatus] || 0)) {
+        map.set(key, r);
+      }
+    } else {
+      map.set(key, r);
+    }
+  });
+  const before = rawData.length;
+  rawData = Array.from(map.values()).map((r, i) => ({ ...r, _id: i }));
+  const removed = before - rawData.length;
+  if (removed > 0) {
+    console.log(`🧹 Deduplicación: ${removed} registros duplicados eliminados. Quedan: ${rawData.length}`);
+    localStorage.setItem(STORAGE_DATA_KEY, JSON.stringify(rawData));
+  }
+}
+
+// --- INSTRUCTIVO DINÁMICO ---
+function showOnboarding() {
+  const steps = [
+    {
+      title: '👋 ¡Bienvenido al Dashboard IGP!',
+      text: 'Este sistema te permite gestionar y analizar las Inspecciones Generales Programadas (IGP) y Hallazgos de Vitapro.',
+      icon: 'fas fa-hand-sparkles'
+    },
+    {
+      title: '📤 Paso 1: Cargar Excel',
+      text: 'Haz clic en <b>"Cargar Excel"</b> en la barra superior o arrastra tu archivo al centro. El sistema analizará automáticamente los datos y detectará duplicados.',
+      icon: 'fas fa-file-excel'
+    },
+    {
+      title: '📊 Paso 2: Dashboard General',
+      text: 'Verás KPIs de cumplimiento, gráficos de evolución mensual, distribución de estados y comparativa por planta. Usa los <b>filtros</b> de arriba para segmentar por año, mes, área, tipo, inspector o programador.',
+      icon: 'fas fa-chart-bar'
+    },
+    {
+      title: '🏭 Paso 3: Reporte por Planta',
+      text: 'En el menú lateral, haz clic en <b>"Reporte por Planta"</b> para ver el detalle de cada planta (Exteriores, Planta 1, Planta 2) con sus inspectores y estados.',
+      icon: 'fas fa-industry'
+    },
+    {
+      title: '📋 Paso 4: Asignación IGP',
+      text: 'En <b>"Asignación IGP"</b> puedes ver y editar las asignaciones mensuales de cada inspector. Las celdas son editables y se guardan automáticamente.',
+      icon: 'fas fa-clipboard-list'
+    },
+    {
+      title: '🔍 Paso 5: Análisis Avanzado',
+      text: 'Accede a análisis de cumplimiento por tipo de IGP, puntaje de cierre y ranking de auditores.',
+      icon: 'fas fa-search-dollar'
+    },
+    {
+      title: '✉️ Exportar y Compartir',
+      text: 'Usa los botones <b>"Enviar Correo"</b>, <b>"PDF"</b> o <b>"Imprimir"</b> para compartir reportes con tu equipo.',
+      icon: 'fas fa-share-alt'
+    },
+    {
+      title: '🔄 Re-subir datos actualizados',
+      text: 'Si subes el mismo Excel actualizado, el sistema <b>NO duplicará</b> los registros. Solo actualizará los estados (Pendiente → Terminado, etc.).',
+      icon: 'fas fa-sync-alt'
+    }
+  ];
+
+  let currentStep = 0;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'onboarding-overlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
+
+  function renderStep() {
+    const step = steps[currentStep];
+    const isLast = currentStep === steps.length - 1;
+    const isFirst = currentStep === 0;
+    overlay.innerHTML = `
+      <div style="background:white;border-radius:16px;padding:32px;max-width:480px;width:90%;box-shadow:0 24px 80px rgba(0,0,0,0.4);animation:fadeIn 0.3s ease;">
+        <div style="text-align:center;margin-bottom:20px;">
+          <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#0EA5E9,#3B82F6);display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;">
+            <i class="${step.icon}" style="font-size:28px;color:white;"></i>
+          </div>
+          <h3 style="color:#0F172A;margin:0 0 8px 0;font-size:18px;">${step.title}</h3>
+          <p style="color:#64748B;font-size:14px;line-height:1.6;margin:0;">${step.text}</p>
+        </div>
+        <div style="display:flex;justify-content:center;gap:6px;margin-bottom:20px;">
+          ${steps.map((_, i) => `<div style="width:${i === currentStep ? '24px' : '8px'};height:8px;border-radius:4px;background:${i === currentStep ? '#3B82F6' : '#E2E8F0'};transition:all 0.3s;"></div>`).join('')}
+        </div>
+        <div style="display:flex;gap:10px;justify-content:center;">
+          ${!isFirst ? '<button onclick="onboardingPrev()" style="padding:10px 20px;border:1px solid #E2E8F0;border-radius:8px;background:white;cursor:pointer;font-size:13px;color:#64748B;">← Anterior</button>' : ''}
+          <button onclick="${isLast ? 'closeOnboarding()' : 'onboardingNext()'}" style="padding:10px 24px;border:none;border-radius:8px;background:linear-gradient(135deg,#0EA5E9,#3B82F6);color:white;cursor:pointer;font-size:13px;font-weight:600;">
+            ${isLast ? '🚀 ¡Comenzar!' : 'Siguiente →'}
+          </button>
+        </div>
+        <div style="text-align:center;margin-top:12px;">
+          <button onclick="closeOnboarding()" style="border:none;background:none;color:#94A3B8;cursor:pointer;font-size:11px;">Saltar tutorial</button>
+        </div>
+      </div>
+    `;
+  }
+
+  window.onboardingNext = () => { currentStep++; renderStep(); };
+  window.onboardingPrev = () => { currentStep--; renderStep(); };
+  window.closeOnboarding = () => {
+    overlay.remove();
+    localStorage.setItem('IGP_Onboarding_Done', 'true');
+  };
+
+  renderStep();
+  document.body.appendChild(overlay);
+}
+
 // --- APP INIT ---
 window.addEventListener('DOMContentLoaded', async () => {
   setupFileHandlers();
@@ -740,10 +858,10 @@ window.addEventListener('DOMContentLoaded', async () => {
       const supaData = await loadRecordsFromSupabase();
       if (supaData && supaData.length > 0) {
         rawData = supaData;
+        deduplicateRawData(); // ← LIMPIAR DUPLICADOS
         dataLoaded = true;
-        // Actualizar localStorage como backup
         localStorage.setItem(STORAGE_DATA_KEY, JSON.stringify(rawData));
-        console.log(`✅ ${rawData.length} registros cargados de Supabase`);
+        console.log(`✅ ${rawData.length} registros cargados de Supabase (deduplicados)`);
         loadingMsg.textContent = `✅ ${rawData.length} registros cargados de la nube`;
       } else {
         console.log('ℹ️ No hay datos en Supabase');
@@ -769,8 +887,9 @@ window.addEventListener('DOMContentLoaded', async () => {
               r._id = (typeof r._id === 'number') ? r._id : i;
               return r;
             });
+          deduplicateRawData(); // ← LIMPIAR DUPLICADOS
           dataLoaded = true;
-          console.log(`✅ ${rawData.length} registros cargados de localStorage`);
+          console.log(`✅ ${rawData.length} registros cargados de localStorage (deduplicados)`);
           loadingMsg.textContent = `✅ ${rawData.length} registros cargados localmente`;
 
           // Intentar sincronizar con Supabase en segundo plano
@@ -786,7 +905,6 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // 3. Mostrar dashboard o welcome screen
   if (dataLoaded && rawData.length > 0) {
-    // Re-aplicar programador desde config actual (por si se agregaron inspectores nuevos)
     rawData.forEach(r => {
       const configProg = getProgrammerFromAuditor(r["Auditor Asignado"] || '');
       if (configProg !== 'N/D') r["Programador"] = configProg;
@@ -796,5 +914,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     initDashboard();
   } else {
     loadingMsg.textContent = 'No hay datos guardados. Sube un archivo Excel para comenzar.';
+    // Mostrar instructivo si es primera vez
+    if (!localStorage.getItem('IGP_Onboarding_Done')) {
+      setTimeout(() => showOnboarding(), 1000);
+    }
   }
 });
