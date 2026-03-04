@@ -393,7 +393,7 @@ function exportAllPlantsPDF(selectedProgrammer, filterType) {
 
   plants.forEach(plant => {
     const auditors = PLANT_GROUPS[plant];
-    let plantData = filteredData.filter(r => auditors.includes(r["Auditor Asignado"]));
+    let plantData = rawData.filter(r => auditors.includes(r["Auditor Asignado"]));
     
     // Filtrar por tipo
     if (filterType === 'igp') {
@@ -848,6 +848,50 @@ function deduplicateRawData() {
   }
 }
 
+// --- AUTO-REPARAR campos faltantes (por imports anteriores con columnas en mayúsculas) ---
+function fixMissingFields() {
+  let fixed = 0;
+  rawData.forEach(r => {
+    const keys = Object.keys(r);
+    
+    // Reparar "Tipo de Auditoría" si está vacío
+    if (!r["Tipo de Auditoría"] || r["Tipo de Auditoría"] === '') {
+      const tipoKey = keys.find(k => {
+        const lk = k.toLowerCase();
+        return (lk.includes('tipo') && lk.includes('auditor')) || lk === 'tipo de auditoría';
+      });
+      if (tipoKey && tipoKey !== "Tipo de Auditoría" && r[tipoKey]) {
+        r["Tipo de Auditoría"] = r[tipoKey].toString().trim();
+        fixed++;
+      }
+    }
+    
+    // Reparar "Departamento" si está vacío
+    if (!r["Departamento"] || r["Departamento"] === '') {
+      const deptoKey = keys.find(k => {
+        const lk = k.toLowerCase();
+        return lk.includes('departamento') || lk.includes('depto');
+      });
+      if (deptoKey && deptoKey !== "Departamento" && r[deptoKey]) {
+        r["Departamento"] = r[deptoKey].toString().trim();
+      }
+    }
+    
+    // Reparar "Estado" si está vacío
+    if (!r["Estado"] || r["Estado"] === '') {
+      const estKey = keys.find(k => k.toLowerCase() === 'estado');
+      if (estKey && estKey !== "Estado" && r[estKey]) {
+        r["Estado"] = r[estKey].toString().trim();
+      }
+    }
+  });
+  
+  if (fixed > 0) {
+    console.log(`🔧 Auto-reparación: ${fixed} registros corregidos (Tipo de Auditoría recuperado)`);
+    localStorage.setItem(STORAGE_DATA_KEY, JSON.stringify(rawData));
+  }
+}
+
 // --- INSTRUCTIVO DINÁMICO ---
 function showOnboarding() {
   const steps = [
@@ -960,7 +1004,8 @@ window.addEventListener('DOMContentLoaded', async () => {
       const supaData = await loadRecordsFromSupabase();
       if (supaData && supaData.length > 0) {
         rawData = supaData;
-        deduplicateRawData(); // ← LIMPIAR DUPLICADOS
+        deduplicateRawData();
+        fixMissingFields(); // Auto-reparar campos de imports antiguos
         dataLoaded = true;
         localStorage.setItem(STORAGE_DATA_KEY, JSON.stringify(rawData));
         console.log(`✅ ${rawData.length} registros cargados de Supabase (deduplicados)`);
@@ -989,7 +1034,8 @@ window.addEventListener('DOMContentLoaded', async () => {
               r._id = (typeof r._id === 'number') ? r._id : i;
               return r;
             });
-          deduplicateRawData(); // ← LIMPIAR DUPLICADOS
+          deduplicateRawData();
+          fixMissingFields(); // Auto-reparar campos de imports antiguos
           dataLoaded = true;
           console.log(`✅ ${rawData.length} registros cargados de localStorage (deduplicados)`);
           loadingMsg.textContent = `✅ ${rawData.length} registros cargados localmente`;
