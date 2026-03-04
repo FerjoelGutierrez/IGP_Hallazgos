@@ -355,9 +355,32 @@ function renderPlantReport(data) {
       const recs = audRecordsMap[a];
       const area = AUDITOR_AREA[a] || 'N/D';
 
-      // Contar IGPs y Hallazgos
-      const igpCount = recs.filter(r => (r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP')).length;
-      const hallCount = recs.filter(r => !(r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP')).length;
+      // Separar IGPs y Hallazgos
+      const igpRecs = recs.filter(r => (r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
+      const hallRecs = recs.filter(r => !(r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
+
+      // Contar IGPs ÚNICAS por tipo+mes (misma IGP con diferentes deptos = 1 sola)
+      const uniqueIGPs = new Map(); // key: "tipo_mes" -> { tipo, estado (el más avanzado), estadoOriginal }
+      igpRecs.forEach(r => {
+        const tipo = (r["Tipo de Auditoría"] || '').trim();
+        const d = r["Fecha de Creación"];
+        let mes = 0;
+        if (d instanceof Date) mes = d.getMonth() + 1;
+        else if (typeof d === 'string' && d.length >= 7) mes = parseInt(d.substring(5, 7));
+        
+        const igpKey = `${tipo}_${mes}`;
+        const s = getShortStatus(r["Estado"]);
+        const priority = { 'E': 3, 'EP': 2, 'P': 1, 'ND': 0 };
+        
+        const existing = uniqueIGPs.get(igpKey);
+        if (!existing || (priority[s] || 0) > (priority[existing.status] || 0)) {
+          uniqueIGPs.set(igpKey, { tipo, status: s, estadoOriginal: r["Estado"] || 'Pendiente' });
+        }
+      });
+
+      // Contar Hallazgos individuales  
+      const igpCount = uniqueIGPs.size;
+      const hallCount = hallRecs.length;
       
       // Resumen de asignaciones
       let assignParts = [];
@@ -365,11 +388,17 @@ function renderPlantReport(data) {
       if (hallCount > 0) assignParts.push(`${hallCount} Hallazgo${hallCount > 1 ? 's' : ''}`);
       const assignText = assignParts.length > 0 ? assignParts.join(', ') : `${recs.length} Total`;
 
-      // Generar pills de estado individual
-      const statusPills = recs.map(r => {
+      // Generar pills: 1 por IGP única + 1 por hallazgo
+      let statusPills = '';
+      // Pills de IGPs únicas
+      uniqueIGPs.forEach((igp, key) => {
+        statusPills += `<span class="status-pill ${igp.status.toLowerCase()}" title="${igp.tipo} - ${igp.estadoOriginal}" style="cursor:help;">${igp.status}</span> `;
+      });
+      // Pills de Hallazgos individuales
+      hallRecs.forEach(r => {
         const s = getShortStatus(r["Estado"]);
-        return `<span class="status-pill ${s.toLowerCase()}" title="${(r["Tipo de Auditoría"] || 'N/D')} - ${r["Estado"] || 'Pendiente'}" style="cursor:help;">${s}</span>`;
-      }).join(' ');
+        statusPills += `<span class="status-pill ${s.toLowerCase()}" title="${(r["Tipo de Auditoría"] || 'Hallazgo')} - ${r["Estado"] || 'Pendiente'}" style="cursor:help;">${s}</span> `;
+      });
 
       const areaCell = showArea
         ? `<td><span style="background:#E0F2FE;color:#0369A1;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;">${area}</span></td>`

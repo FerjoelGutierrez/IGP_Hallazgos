@@ -361,26 +361,30 @@ function exportPlantPDF(plantName) {
   exportTableToPDF('table-plant-' + plantName.replace(/\s/g, ''), 'Reporte_' + plantName);
 }
 
-function exportAllPlantsPDF(selectedProgrammer) {
+function exportAllPlantsPDF(selectedProgrammer, filterType) {
+  filterType = filterType || 'all';
   const plants = selectedProgrammer === 'all'
     ? Object.keys(PLANT_GROUPS)
     : Object.keys(PLANT_PROGRAMMER).filter(p => PLANT_PROGRAMMER[p] === selectedProgrammer);
 
   if (plants.length === 0) return alert('No hay datos para este programador');
 
+  const filterLabels = { 'all': 'IGP & HALLAZGOS', 'igp': 'SOLO IGP', 'hallazgos': 'SOLO HALLAZGOS' };
   const now = new Date();
-  const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
   const doc = new jspdf.jsPDF('p', 'mm', 'a4');
   
   // Header
-  doc.setFontSize(18);
+  doc.setFontSize(16);
   doc.setTextColor(15, 23, 42);
   doc.setFont(undefined, 'bold');
-  doc.text(selectedProgrammer === 'all' ? "REPORTE CONSOLIDADO IGP" : `REPORTE - ${selectedProgrammer.toUpperCase()}`, 14, 18);
+  const title = selectedProgrammer === 'all' 
+    ? `REPORTE CONSOLIDADO — ${filterLabels[filterType]}`
+    : `REPORTE ${selectedProgrammer.toUpperCase()} — ${filterLabels[filterType]}`;
+  doc.text(title, 14, 18);
   doc.setFontSize(10);
   doc.setFont(undefined, 'normal');
   doc.setTextColor(100);
-  doc.text(`Generado: ${now.toLocaleDateString()} ${now.toLocaleTimeString()} · Registros filtrados: ${filteredData.length}`, 14, 25);
+  doc.text(`Generado: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`, 14, 25);
   doc.setDrawColor(15, 23, 42);
   doc.setLineWidth(0.5);
   doc.line(14, 28, 196, 28);
@@ -389,7 +393,15 @@ function exportAllPlantsPDF(selectedProgrammer) {
 
   plants.forEach(plant => {
     const auditors = PLANT_GROUPS[plant];
-    const plantData = filteredData.filter(r => auditors.includes(r["Auditor Asignado"]));
+    let plantData = filteredData.filter(r => auditors.includes(r["Auditor Asignado"]));
+    
+    // Filtrar por tipo
+    if (filterType === 'igp') {
+      plantData = plantData.filter(r => (r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
+    } else if (filterType === 'hallazgos') {
+      plantData = plantData.filter(r => !(r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP'));
+    }
+    
     if (plantData.length === 0) return;
 
     const prog = PLANT_PROGRAMMER[plant] || 'N/D';
@@ -400,7 +412,6 @@ function exportAllPlantsPDF(selectedProgrammer) {
 
     if (yPos > 240) { doc.addPage(); yPos = 20; }
 
-    // Plant header
     doc.setFontSize(13);
     doc.setTextColor(15, 23, 42);
     doc.setFont(undefined, 'bold');
@@ -411,7 +422,6 @@ function exportAllPlantsPDF(selectedProgrammer) {
     doc.text(`Total: ${plantData.length} | Ejecutadas: ${ej} | Pendientes: ${pend} | En Proceso: ${ep} | Cumplimiento: ${pct}%`, 14, yPos + 5);
     yPos += 9;
 
-    // Table from data
     const showArea = (plant === "Planta Exteriores");
     const headers = showArea 
       ? [['Inspector', 'Área', 'Tipo', 'Departamento', 'Estado']]
@@ -419,10 +429,9 @@ function exportAllPlantsPDF(selectedProgrammer) {
 
     const rows = plantData.map(r => {
       const estado = r["Estado"] || 'Pendiente';
-      const row = showArea 
+      return showArea 
         ? [r["Auditor Asignado"] || '', AUDITOR_AREA[r["Auditor Asignado"]] || '', r["Tipo de Auditoría"] || '', r["Departamento"] || '', estado]
         : [r["Auditor Asignado"] || '', r["Tipo de Auditoría"] || '', r["Departamento"] || '', estado];
-      return row;
     });
 
     doc.autoTable({
@@ -446,7 +455,6 @@ function exportAllPlantsPDF(selectedProgrammer) {
     yPos = doc.lastAutoTable.finalY + 12;
   });
 
-  // Footer on all pages
   const pageCount = doc.internal.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
@@ -455,7 +463,8 @@ function exportAllPlantsPDF(selectedProgrammer) {
     doc.text(`Página ${i} de ${pageCount} — IGP Dashboard Vitapro`, 14, 288);
   }
 
-  const filename = selectedProgrammer === 'all' ? 'Reporte_Todas_Plantas' : `Reporte_${selectedProgrammer.replace(/\s/g, '_')}`;
+  const typeLabel = filterType === 'igp' ? '_IGP' : (filterType === 'hallazgos' ? '_Hallazgos' : '');
+  const filename = selectedProgrammer === 'all' ? `Reporte_Todas_Plantas${typeLabel}` : `Reporte_${selectedProgrammer.replace(/\s/g, '_')}${typeLabel}`;
   doc.save(filename + '.pdf');
 }
 
@@ -576,6 +585,8 @@ function sendEmail(selectedProgrammer) {
 }
 
 // --- MODAL DE EXPORTACIÓN ---
+let _pdfFilterType = 'all'; // 'all', 'igp', 'hallazgos'
+
 function showExportModal(type) {
   // type = 'email' o 'pdf'
   const programmers = [...new Set(Object.values(PLANT_PROGRAMMER))];
@@ -587,22 +598,45 @@ function showExportModal(type) {
     document.body.appendChild(modal);
   }
 
+  // Si es PDF, mostrar primero selección de tipo
+  const pdfTypeSelector = type === 'pdf' ? `
+    <p style="font-size:12px;color:var(--text-secondary);margin:0 0 8px 0;font-weight:600;">Tipo de reporte:</p>
+    <div style="display:flex;gap:6px;margin-bottom:16px;">
+      <button onclick="_pdfFilterType='all'; document.querySelectorAll('.pdf-type-btn').forEach(b=>b.style.background='#F8FAFC'); this.style.background='#DBEAFE';" 
+        class="pdf-type-btn" style="flex:1;padding:8px;border:1px solid var(--border-color);border-radius:8px;background:#DBEAFE;cursor:pointer;font-size:12px;font-weight:600;">
+        📊 Todo
+      </button>
+      <button onclick="_pdfFilterType='igp'; document.querySelectorAll('.pdf-type-btn').forEach(b=>b.style.background='#F8FAFC'); this.style.background='#DBEAFE';" 
+        class="pdf-type-btn" style="flex:1;padding:8px;border:1px solid var(--border-color);border-radius:8px;background:#F8FAFC;cursor:pointer;font-size:12px;font-weight:600;">
+        🔍 Solo IGP
+      </button>
+      <button onclick="_pdfFilterType='hallazgos'; document.querySelectorAll('.pdf-type-btn').forEach(b=>b.style.background='#F8FAFC'); this.style.background='#DBEAFE';" 
+        class="pdf-type-btn" style="flex:1;padding:8px;border:1px solid var(--border-color);border-radius:8px;background:#F8FAFC;cursor:pointer;font-size:12px;font-weight:600;">
+        ⚠️ Solo Hallazgos
+      </button>
+    </div>
+    <hr style="border:none;border-top:1px solid #E2E8F0;margin:0 0 12px 0;">
+  ` : '';
+
+  _pdfFilterType = 'all'; // reset
+
   modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:200;display:flex;align-items:center;justify-content:center;';
   modal.innerHTML = `
-    <div style="background:white;border-radius:12px;padding:24px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+    <div style="background:white;border-radius:12px;padding:24px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
       <h3 style="margin:0 0 16px 0;font-size:16px;color:var(--primary-color);">
         <i class="fas fa-${type === 'email' ? 'envelope' : 'file-pdf'}" style="color:var(--accent-color);margin-right:8px;"></i>
         ${type === 'email' ? 'Enviar Correo' : 'Descargar PDF'}
       </h3>
-      <p style="font-size:13px;color:var(--text-secondary);margin:0 0 16px 0;">Selecciona el programador para el reporte:</p>
+      ${pdfTypeSelector}
+      <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px 0;">Selecciona el programador:</p>
       <div style="display:flex;flex-direction:column;gap:8px;">
-        <button onclick="closeExportModal(); ${type === 'email' ? "sendEmail('all')" : "exportAllPlantsPDF('all')"};"
+        <button onclick="closeExportModal(); ${type === 'email' ? "sendEmail('all')" : "exportAllPlantsPDF('all', _pdfFilterType)"};"
           style="padding:12px 16px;border:1px solid var(--border-color);border-radius:8px;background:#F8FAFC;cursor:pointer;font-size:13px;font-weight:600;text-align:left;transition:all 0.2s;"
           onmouseover="this.style.background='#E0F2FE'" onmouseout="this.style.background='#F8FAFC'">
           <i class="fas fa-globe" style="margin-right:8px;color:var(--accent-color);"></i> Todos los Programadores
         </button>
         ${programmers.map(p => `
-        <button onclick="closeExportModal(); ${type === 'email' ? `sendEmail('${p}')` : `exportAllPlantsPDF('${p}')`};"
+        <button onclick="closeExportModal(); ${type === 'email' ? `sendEmail('${p}')` : `exportAllPlantsPDF('${p}', _pdfFilterType)`};"
           style="padding:12px 16px;border:1px solid var(--border-color);border-radius:8px;background:#F8FAFC;cursor:pointer;font-size:13px;font-weight:500;text-align:left;transition:all 0.2s;"
           onmouseover="this.style.background='#E0F2FE'" onmouseout="this.style.background='#F8FAFC'">
           <i class="fas fa-user" style="margin-right:8px;color:#64748B;"></i> ${p}
