@@ -826,12 +826,14 @@ async function clearSavedData() {
 
 // --- DEDUPLICAR DATOS ---
 function deduplicateRawData() {
+  const stripAccents = (s) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  
+  // PASO 1: Dedup por clave compuesta completa
   const map = new Map();
   rawData.forEach(r => {
     const key = getCompositeKey(r);
     const existing = map.get(key);
     if (existing) {
-      // Si hay duplicado, mantener el que tenga estado más avanzado
       const oldStatus = getShortStatus(existing["Estado"]);
       const newStatus = getShortStatus(r["Estado"]);
       const priority = { 'E': 3, 'EP': 2, 'P': 1, 'ND': 0 };
@@ -842,13 +844,47 @@ function deduplicateRawData() {
       map.set(key, r);
     }
   });
-  const before = rawData.length;
-  rawData = Array.from(map.values()).map((r, i) => ({ ...r, _id: i }));
-  const removed = before - rawData.length;
-  if (removed > 0) {
-    console.log(`🧹 Deduplicación: ${removed} registros duplicados eliminados. Quedan: ${rawData.length}`);
-    localStorage.setItem(STORAGE_DATA_KEY, JSON.stringify(rawData));
+  rawData = Array.from(map.values());
+
+  // PASO 2: Eliminar "registros fantasma" — registros sin departamento/tipo que son
+  // duplicados de registros que SÍ tienen departamento/tipo (misma persona+fecha)
+  const ghostsToRemove = new Set();
+  
+  rawData.forEach((r, idx) => {
+    const depto = (r["Departamento"] || '').trim();
+    const tipo = (r["Tipo de Auditoría"] || '').trim();
+    
+    // Si este registro NO tiene departamento, buscar si existe otro con departamento
+    if (!depto) {
+      const auditor = stripAccents(r["Auditor Asignado"]);
+      const fecha = (r["Fecha de Creación"] || '').toString().substring(0, 10);
+      
+      const hasMatch = rawData.some((other, otherIdx) => {
+        if (otherIdx === idx) return false;
+        const otherDepto = (other["Departamento"] || '').trim();
+        if (!otherDepto) return false; // el otro tampoco tiene depto
+        
+        return stripAccents(other["Auditor Asignado"]) === auditor
+          && (other["Fecha de Creación"] || '').toString().substring(0, 10) === fecha;
+      });
+      
+      if (hasMatch) {
+        ghostsToRemove.add(idx);
+      }
+    }
+  });
+
+  if (ghostsToRemove.size > 0) {
+    rawData = rawData.filter((_, idx) => !ghostsToRemove.has(idx));
+    console.log(`👻 ${ghostsToRemove.size} registros fantasma (sin departamento) eliminados`);
   }
+
+  // Reasignar IDs
+  const before = rawData.length;
+  rawData = rawData.map((r, i) => ({ ...r, _id: i }));
+  
+  console.log(`🧹 Deduplicación completa: ${rawData.length} registros limpios`);
+  localStorage.setItem(STORAGE_DATA_KEY, JSON.stringify(rawData));
 }
 
 // --- AUTO-REPARAR campos faltantes (por imports anteriores con columnas en mayúsculas/acentos) ---
