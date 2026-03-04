@@ -120,47 +120,49 @@ function handleFiles(files) {
           };
         });
 
-      // --- LÓGICA DE REEMPLAZO POR MES (SMART RE-IMPORT) ---
-      // 1. Detectar qué meses y años traemos en el Excel
-      const monthsInFile = new Set();
+      // --- DEDUPLICACIÓN INTELIGENTE ---
+      // Crear mapa de lo existente (clave = fecha+auditor+area+unidad)
+      const existingMap = new Map();
+      rawData.forEach(r => existingMap.set(getCompositeKey(r), r));
+
+      let updated = 0;
+      let added = 0;
+
+      // Para cada registro del Excel:
+      // - Si ya existe en rawData → solo actualizar el estado
+      // - Si no existe → agregarlo
       incomingRecords.forEach(r => {
-        const d = r["Fecha de Creación"];
-        if (d instanceof Date) {
-          monthsInFile.add(`${d.getFullYear()}-${d.getMonth() + 1}`);
-        } else if (typeof d === 'string' && d.length >= 7) {
-          monthsInFile.add(`${d.substring(0, 4)}-${parseInt(d.substring(5, 7))}`);
+        const key = getCompositeKey(r);
+        const existing = existingMap.get(key);
+        
+        if (existing) {
+          // Ya existe → actualizar estado y observaciones
+          existing["Estado"] = r["Estado"] || existing["Estado"];
+          existing["Observaciones"] = r["Observaciones"] || existing["Observaciones"];
+          existingMap.set(key, existing);
+          updated++;
+        } else {
+          // No existe → agregar como nuevo
+          existingMap.set(key, r);
+          added++;
         }
       });
 
-      // 2. Limpiar de rawData lo que sea de esos meses
-      rawData = rawData.filter(r => {
-        const d = r["Fecha de Creación"];
-        let key = "";
-        if (d instanceof Date) {
-          key = `${d.getFullYear()}-${d.getMonth() + 1}`;
-        } else if (typeof d === 'string' && d.length >= 7) {
-          key = `${d.substring(0, 4)}-${parseInt(d.substring(5, 7))}`;
-        }
-        return !monthsInFile.has(key);
-      });
-
-      // 3. Agregar los nuevos registros
-      rawData = [...rawData, ...incomingRecords].map((r, i) => ({ ...r, _id: i }));
+      rawData = Array.from(existingMap.values()).map((r, i) => ({ ...r, _id: i }));
 
       // Guardar localStorage
       localStorage.setItem(STORAGE_DATA_KEY, JSON.stringify(rawData));
       
-      // Sincronizar (Si es necesario, se podría limpiar Supabase para esos meses también)
-      // Pero por ahora, para ser rápido y local, esto arregla la interfaz.
+      // Sincronizar con Supabase en segundo plano
       saveRecordsToSupabase(incomingRecords);
 
-      // --- LIMPIEZA DE FILTROS PARA MOSTRAR DATOS ---
+      // --- ACTIVAR FILTROS ---
       document.querySelectorAll('.filter-dropdown input[type="checkbox"]').forEach(cb => cb.checked = true);
       
       document.getElementById('welcome-screen').style.display = 'none';
       initDashboard();
       updateDashboard();
-      alert(`✅ Re-importación Inteligente: Se actualizaron los datos del mes. Total: ${rawData.length} registros.`);
+      alert(`✅ Procesado: ${added} nuevos, ${updated} actualizados. Total: ${rawData.length} registros.`);
     };
     reader.readAsArrayBuffer(files[0]);
   }
