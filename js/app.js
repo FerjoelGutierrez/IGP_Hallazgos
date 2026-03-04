@@ -109,8 +109,11 @@ function handleFiles(files) {
           const depto = findCol('departamento', 'depto', 'ubicación').toString().trim();
           const estado = findCol('estado').toString().trim() || 'Pendiente';
           const obs = findCol('observacion').toString().trim();
+          const puntaje = findCol('puntaje').toString().trim();
+          const fechaEjec = findCol('fecha de ejecucion', 'fecha ejecucion').toString().trim();
+          const fechaCierre = findCol('fecha de cierre', 'fecha cierre').toString().trim();
 
-          let fecha = findCol('fecha de creación', 'fecha creación', 'fecha');
+          let fecha = findCol('fecha de creacion', 'fecha creacion', 'fecha');
           if (typeof fecha === 'string' && fecha.includes('/')) {
              const parts = fecha.split('/');
              if (parts.length === 3) fecha = new Date(parts[2], parts[1]-1, parts[0]);
@@ -126,6 +129,9 @@ function handleFiles(files) {
             "Fecha de Creación": fecha,
             "Estado": estado,
             "Observaciones": obs,
+            "Puntaje": puntaje,
+            "Fecha de Ejecución": fechaEjec,
+            "Fecha de Cierre": fechaCierre,
             "Programador": r["Programador"] || findCol('programador').toString().trim() || getProgrammerFromAuditor(auditor)
           };
         });
@@ -427,15 +433,48 @@ function exportAllPlantsPDF(selectedProgrammer, filterType) {
 
     const showArea = (plant === "Planta Exteriores");
     const headers = showArea 
-      ? [['Inspector', 'Área', 'Tipo', 'Departamento', 'Estado']]
-      : [['Inspector', 'Tipo', 'Departamento', 'Estado']];
+      ? [['Inspector', 'Área', 'Tipo', 'Departamento', 'Puntaje', 'Estado']]
+      : [['Inspector', 'Tipo', 'Departamento', 'Puntaje', 'Estado']];
 
-    const rows = plantData.map(r => {
-      const estado = r["Estado"] || 'Pendiente';
-      return showArea 
-        ? [r["Auditor Asignado"] || '', AUDITOR_AREA[r["Auditor Asignado"]] || '', r["Tipo de Auditoría"] || '', r["Departamento"] || '', estado]
-        : [r["Auditor Asignado"] || '', r["Tipo de Auditoría"] || '', r["Departamento"] || '', estado];
+    // Separar IGP y Hallazgos, ordenar por Unidad > Inspector
+    const isIGP = (r) => (r["Tipo de Auditoría"] || '').trim().toUpperCase().startsWith('IGP');
+    const igpData = plantData.filter(isIGP).sort((a, b) => {
+      const u = (a["Unidad"] || '').localeCompare(b["Unidad"] || '');
+      return u !== 0 ? u : (a["Auditor Asignado"] || '').localeCompare(b["Auditor Asignado"] || '');
     });
+    const hallData = plantData.filter(r => !isIGP(r)).sort((a, b) => {
+      const u = (a["Unidad"] || '').localeCompare(b["Unidad"] || '');
+      return u !== 0 ? u : (a["Auditor Asignado"] || '').localeCompare(b["Auditor Asignado"] || '');
+    });
+
+    // Generar filas con separador visual
+    const rows = [];
+    if (igpData.length > 0) {
+      const colCount = showArea ? 6 : 5;
+      const sepRow = Array(colCount).fill('');
+      sepRow[0] = '📋 IGP (' + igpData.length + ')';
+      rows.push(sepRow);
+      igpData.forEach(r => {
+        const estado = r["Estado"] || 'Pendiente';
+        const puntaje = r["Puntaje"] || '';
+        rows.push(showArea 
+          ? [r["Auditor Asignado"] || '', AUDITOR_AREA[r["Auditor Asignado"]] || '', r["Tipo de Auditoría"] || '', r["Departamento"] || '', puntaje, estado]
+          : [r["Auditor Asignado"] || '', r["Tipo de Auditoría"] || '', r["Departamento"] || '', puntaje, estado]);
+      });
+    }
+    if (hallData.length > 0) {
+      const colCount = showArea ? 6 : 5;
+      const sepRow = Array(colCount).fill('');
+      sepRow[0] = '⚠️ HALLAZGOS (' + hallData.length + ')';
+      rows.push(sepRow);
+      hallData.forEach(r => {
+        const estado = r["Estado"] || 'Pendiente';
+        const puntaje = r["Puntaje"] || '';
+        rows.push(showArea 
+          ? [r["Auditor Asignado"] || '', AUDITOR_AREA[r["Auditor Asignado"]] || '', r["Tipo de Auditoría"] || '', r["Departamento"] || '', puntaje, estado]
+          : [r["Auditor Asignado"] || '', r["Tipo de Auditoría"] || '', r["Departamento"] || '', puntaje, estado]);
+      });
+    }
 
     doc.autoTable({
       startY: yPos,
@@ -445,8 +484,18 @@ function exportAllPlantsPDF(selectedProgrammer, filterType) {
       headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8 },
       styles: { fontSize: 7, cellPadding: 2 },
       didParseCell: (d) => {
-        const colIdx = showArea ? 4 : 3;
-        if (d.column.index === colIdx && d.section === 'body') {
+        const estadoCol = showArea ? 5 : 4;
+        // Estilo para separador de sección (IGP / HALLAZGOS)
+        if (d.section === 'body' && d.column.index === 0) {
+          const txt = (d.cell.raw || '').toString();
+          if (txt.includes('IGP (') || txt.includes('HALLAZGOS (')) {
+            d.cell.styles.fillColor = [241, 245, 249];
+            d.cell.styles.fontStyle = 'bold';
+            d.cell.styles.fontSize = 8;
+          }
+        }
+        // Color de estado
+        if (d.column.index === estadoCol && d.section === 'body') {
           const s = getShortStatus(d.cell.raw || '');
           if (s === 'E') { d.cell.styles.textColor = [16, 185, 129]; d.cell.styles.fontStyle = 'bold'; }
           else if (s === 'P') { d.cell.styles.textColor = [239, 68, 68]; d.cell.styles.fontStyle = 'bold'; }
@@ -922,6 +971,15 @@ function fixMissingFields() {
       const estKey = keys.find(k => stripAccents(k) === 'estado');
       if (estKey && r[estKey]) {
         r["Estado"] = r[estKey].toString().trim();
+      }
+    }
+
+    // Reparar "Puntaje" si está vacío
+    if (!r["Puntaje"] || r["Puntaje"] === '') {
+      const puntKey = keys.find(k => stripAccents(k).includes('puntaje'));
+      if (puntKey && r[puntKey]) {
+        r["Puntaje"] = r[puntKey].toString().trim();
+        fixed++;
       }
     }
   });
