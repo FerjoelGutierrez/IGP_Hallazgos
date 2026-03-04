@@ -447,54 +447,25 @@ function exportAllPlantsPDF(selectedProgrammer, filterType) {
       return u !== 0 ? u : (a["Auditor Asignado"] || '').localeCompare(b["Auditor Asignado"] || '');
     });
 
-    // Generar filas con separador visual
-    const rows = [];
-    if (igpData.length > 0) {
-      const colCount = showArea ? 6 : 5;
-      const sepRow = Array(colCount).fill('');
-      sepRow[0] = '📋 IGP (' + igpData.length + ')';
-      rows.push(sepRow);
-      igpData.forEach(r => {
-        const estado = r["Estado"] || 'Pendiente';
-        const puntaje = r["Puntaje"] || '';
-        rows.push(showArea 
-          ? [r["Auditor Asignado"] || '', AUDITOR_AREA[r["Auditor Asignado"]] || '', r["Tipo de Auditoría"] || '', r["Departamento"] || '', puntaje, estado]
-          : [r["Auditor Asignado"] || '', r["Tipo de Auditoría"] || '', r["Departamento"] || '', puntaje, estado]);
-      });
-    }
-    if (hallData.length > 0) {
-      const colCount = showArea ? 6 : 5;
-      const sepRow = Array(colCount).fill('');
-      sepRow[0] = '⚠️ HALLAZGOS (' + hallData.length + ')';
-      rows.push(sepRow);
-      hallData.forEach(r => {
-        const estado = r["Estado"] || 'Pendiente';
-        const puntaje = r["Puntaje"] || '';
-        rows.push(showArea 
-          ? [r["Auditor Asignado"] || '', AUDITOR_AREA[r["Auditor Asignado"]] || '', r["Tipo de Auditoría"] || '', r["Departamento"] || '', puntaje, estado]
-          : [r["Auditor Asignado"] || '', r["Tipo de Auditoría"] || '', r["Departamento"] || '', puntaje, estado]);
-      });
-    }
+    // Generar tablas separadas: primero IGP, luego Hallazgos
+    const buildRows = (data) => data.map(r => {
+      const estado = r["Estado"] || 'Pendiente';
+      const puntaje = r["Puntaje"] || '-';
+      return showArea 
+        ? [r["Auditor Asignado"] || '', AUDITOR_AREA[r["Auditor Asignado"]] || '', r["Tipo de Auditoría"] || '', r["Departamento"] || '', puntaje, estado]
+        : [r["Auditor Asignado"] || '', r["Tipo de Auditoría"] || '', r["Departamento"] || '', puntaje, estado];
+    });
 
-    doc.autoTable({
+    const tableConfig = (rows, sectionColor) => ({
       startY: yPos,
       head: headers,
       body: rows,
       theme: 'grid',
-      headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8 },
-      styles: { fontSize: 7, cellPadding: 2 },
+      headStyles: { fillColor: sectionColor, textColor: 255, fontSize: 7, fontStyle: 'bold' },
+      styles: { fontSize: 7, cellPadding: 2, lineColor: [226, 232, 240] },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
       didParseCell: (d) => {
         const estadoCol = showArea ? 5 : 4;
-        // Estilo para separador de sección (IGP / HALLAZGOS)
-        if (d.section === 'body' && d.column.index === 0) {
-          const txt = (d.cell.raw || '').toString();
-          if (txt.includes('IGP (') || txt.includes('HALLAZGOS (')) {
-            d.cell.styles.fillColor = [241, 245, 249];
-            d.cell.styles.fontStyle = 'bold';
-            d.cell.styles.fontSize = 8;
-          }
-        }
-        // Color de estado
         if (d.column.index === estadoCol && d.section === 'body') {
           const s = getShortStatus(d.cell.raw || '');
           if (s === 'E') { d.cell.styles.textColor = [16, 185, 129]; d.cell.styles.fontStyle = 'bold'; }
@@ -504,7 +475,31 @@ function exportAllPlantsPDF(selectedProgrammer, filterType) {
       }
     });
 
-    yPos = doc.lastAutoTable.finalY + 12;
+    if (igpData.length > 0) {
+      if (yPos > 240) { doc.addPage(); yPos = 20; }
+      doc.setFontSize(9);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(30, 64, 175);
+      doc.text(`INSPECCIONES GENERALES PLANEADAS (${igpData.length})`, 14, yPos);
+      yPos += 4;
+      doc.autoTable(tableConfig(buildRows(igpData), [30, 64, 175]));
+      yPos = doc.lastAutoTable.finalY + 8;
+    }
+
+    if (hallData.length > 0) {
+      if (yPos > 240) { doc.addPage(); yPos = 20; }
+      doc.setFontSize(9);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(180, 83, 9);
+      doc.text(`REPORTES DE ACTOS SUBESTANDARES - HALLAZGOS (${hallData.length})`, 14, yPos);
+      yPos += 4;
+      doc.autoTable(tableConfig(buildRows(hallData), [180, 83, 9]));
+      yPos = doc.lastAutoTable.finalY + 12;
+    }
+
+    if (igpData.length === 0 && hallData.length === 0) {
+      yPos += 5;
+    }
   });
 
   const pageCount = doc.internal.getNumberOfPages();
