@@ -5,8 +5,8 @@
 function getShortStatus(s) {
   if (!s) return "ND";
   s = s.toLowerCase().trim();
-  // Prioridad: Si dice terminado o cerrado, es Ejecutado (E)
-  if (s === "terminado" || s === "cerrado" || s.includes("ejecut")) return "E";
+  // Prioridad: Si dice terminado/a o cerrado/a, es Ejecutado (E)
+  if (s.includes("termin") || s.includes("cerrad") || s.includes("ejecut") || s.includes("complet")) return "E";
   // Si dice proceso o curso, es En Proceso (EP)
   if (s.includes("proce") || s.includes("curso")) return "EP";
   // Si dice pendiente, es Pendiente (P)

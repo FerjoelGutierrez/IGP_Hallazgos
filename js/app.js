@@ -80,6 +80,9 @@ function handleFiles(files) {
 
       if (allRows.length === 0) return alert("El archivo no tiene datos válidos");
 
+      // Preguntar si desea limpiar todo (para evitar el error de los 401 duplicados)
+      const clearBefore = confirm("¿Desea REEMPLAZAR todos los datos actuales con los de este archivo?\n\n(Aceptar = Limpieza total, Cancelar = Solo sumar lo nuevo)");
+
       const incomingRecords = allRows
         .filter(r => {
           const a = (r["Auditor Asignado"] || "").toString().toLowerCase().trim();
@@ -112,14 +115,17 @@ function handleFiles(files) {
           };
         });
 
-      // --- ACUMULACIÓN SIMPLE ---
-      const map = new Map();
-      // Primero cargamos lo existente
-      rawData.forEach(r => map.set(getCompositeKey(r), r));
-      // Luego agregamos/actualizamos con lo nuevo
-      incomingRecords.forEach(r => map.set(getCompositeKey(r), r));
-      
-      rawData = Array.from(map.values()).map((r, i) => ({ ...r, _id: i }));
+      if (clearBefore) {
+        // MODO REEMPLAZO TOTAL
+        await deleteAllRecordsFromSupabase();
+        rawData = incomingRecords.map((r, i) => ({ ...r, _id: i }));
+      } else {
+        // MODO ACUMULACIÓN (Con detección de duplicados mejorada)
+        const map = new Map();
+        rawData.forEach(r => map.set(getCompositeKey(r), r));
+        incomingRecords.forEach(r => map.set(getCompositeKey(r), r));
+        rawData = Array.from(map.values()).map((r, i) => ({ ...r, _id: i }));
+      }
 
       // Guardar localStorage
       localStorage.setItem(STORAGE_DATA_KEY, JSON.stringify(rawData));
@@ -128,12 +134,12 @@ function handleFiles(files) {
       saveRecordsToSupabase(incomingRecords);
 
       // --- LIMPIEZA DE FILTROS PARA MOSTRAR DATOS ---
-      document.querySelectorAll('.filter-dropdown input[type="checkbox"]').forEach(cb => cb.checked = false);
+      document.querySelectorAll('.filter-dropdown input[type="checkbox"]').forEach(cb => cb.checked = true);
       
       document.getElementById('welcome-screen').style.display = 'none';
       initDashboard();
       updateDashboard();
-      alert(`✅ Se cargaron/actualizaron ${incomingRecords.length} registros exitosamente.`);
+      alert(`✅ Se procesaron exitosamente. Total de registros en sistema: ${rawData.length}`);
     };
     reader.readAsArrayBuffer(files[0]);
   }
