@@ -17,7 +17,8 @@ function renderKPIs(data) {
   document.getElementById('kpi-proc').textContent = ep;
   document.getElementById('kpi-pend').textContent = p;
   document.getElementById('kpi-cump').textContent = cumplimiento;
-  document.getElementById('kpi-cump-sub').textContent = `Ejecutadas (${e}) vs Total Filtrado (${t})`;
+  const subEl = document.getElementById('kpi-cump-sub');
+  if (subEl) subEl.textContent = `Ejecutadas (${e}) vs Total Filtrado (${t})`;
 }
 
 function renderCharts(data) {

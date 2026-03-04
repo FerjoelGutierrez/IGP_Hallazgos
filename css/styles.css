@@ -243,7 +243,7 @@ body {
 
 .filter-dropdown {
   position: absolute; top: calc(100% + 8px); left: 0;
-  width: 100%; background: white;
+  width: max-content; min-width: 260px; background: white;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md); z-index: 100;
